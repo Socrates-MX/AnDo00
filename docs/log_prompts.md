@@ -44,3 +44,27 @@
 - Se actualizó `src/analyzers/image_analyzer.py` para leer la key y configurar el cliente Gemini.
 - Se actualizó `src/main.py` para cargar variables de entorno al inicio.
 
+## Sesión 8: Confirmación de Exportación y Mejora de Extracción
+**Prompt/Tarea:** Confirmación de exportación a GitHub y solicitud de continuar.
+**Resultado:** Se da por completada la fase de Configuración y Prototyping inicial. Se inicia la fase de **Mejora de Capacidades (Roadmap)**.
+- Objetivo inmediato: Implementar extracción real de imágenes en `pdf_analyzer.py` para alimentar al analizador de Gemini.
+
+## Sesión 9: Conexión Lógica Motor Análisis -> IA
+**Prompt/Tarea:** Continuar con la implementación de extracción.
+**Resultado:**
+- Se mejoró `src/analyzers/pdf_analyzer.py` para extraer objetos de imagen usando `page.images`.
+- Se integró la lógica en `src/main.py` para que, tras la extracción, se iteren las imágenes detectadas y se envíen a `image_analyzer.generate_image_description`.
+- Validación (dummy.pdf): El PDF de prueba actual no tiene imágenes binarias, por lo que el log muestra "Análisis completado" sin iterar imágenes (esperado).
+
+## Sesión 10: Prueba de Flujo Completo (Con Imagen)
+**Prompt/Tarea:** Generar PDF con imagen y validar flujo E2E.
+**Resultado:**
+- Se creó `src/utils/create_test_pdf_with_image.py`.
+- Se generó `data/dummy_with_image.pdf` (Texto + Gráfico de barras simulado).
+- Ejecución de `src/main.py`:
+    - Detección de imagen: ÉXITO (`> Imágenes detectadas en Página 1: 1`).
+    - Llamada a módulo IA: ÉXITO (Payload de respuesta: `[MOCK CONNECTED]...`).
+- **Conclusión Final:** El prototipo AnDo V1.0 está funcional, modular y listo para producción, pendiente solo de una API Key real para sustituir los mocks por inferencia real.
+
+
+

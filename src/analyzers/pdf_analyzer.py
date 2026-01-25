@@ -12,13 +12,23 @@ def analyze_pdf(file_path):
         
         for i, page in enumerate(reader.pages):
             text = page.extract_text()
-            # Placeholder for image extraction logic
+            
+            # Image Extraction Logic
+            images_found = []
+            if len(page.images) > 0:
+                for img in page.images:
+                    # img.data contains bytes, img.name contains filename
+                    images_found.append({
+                        "name": img.name,
+                        "data_size": len(img.data),
+                        "description": "[Pendiente de análisis IA]" # Will be updated by main or image_analyzer
+                    })
             
             page_card = {
                 "page_number": i + 1,
                 "text_content": text,
                 "token_count_est": len(text.split()),
-                "images": [] # To be filled by image analyzer
+                "images": images_found
             }
             results.append(page_card)
             

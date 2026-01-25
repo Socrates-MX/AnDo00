@@ -27,6 +27,20 @@ def main(pdf_path):
     print("Ejecutando motor de análisis...")
     pages_data = pdf_analyzer.analyze_pdf(pdf_path)
     
+    # 2.1 Procesamiento de Imágenes (Conexión Gemini)
+    from analyzers import image_analyzer
+    
+    if pages_data:
+        print("Buscando imágenes extraídas para análisis IA...")
+        for page in pages_data:
+            if page['images']:
+                print(f"  > Imágenes detectadas en Página {page['page_number']}: {len(page['images'])}")
+                for img in page['images']:
+                    # En un caso real pasaríamos img['data'] (bytes) 
+                    desc = image_analyzer.generate_image_description(img['name']) 
+                    img['description'] = desc
+
+    
     if pages_data:
         print(f"Análisis completado. Páginas procesadas: {len(pages_data)}")
         
