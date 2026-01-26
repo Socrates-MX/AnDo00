@@ -64,6 +64,8 @@ if uploaded_file is not None:
         st.session_state.pages_data = None
     if 'detailed_report' not in st.session_state:
         st.session_state.detailed_report = None
+    if 'index_card' not in st.session_state:
+        st.session_state.index_card = None
 
     with col2:
         st.subheader("Resultados del Análisis")
@@ -90,6 +92,19 @@ if uploaded_file is not None:
                             st.session_state.detailed_report = json.loads(detailed_json_raw)
                         except Exception as e:
                             st.error(f"Error en la generación automática del reporte: {e}")
+
+                    # 3. ÍNDICE Y CONGRUENCIA: Generar estructura de navegación
+                    from generators import report_generator
+                    with st.spinner("Construyendo Índice Inteligente y validando congruencia..."):
+                        st.session_state.index_card = report_generator.generate_index_card(st.session_state.pages_data)
+
+                    # 4. PRUEBA DE CONGRUENCIA ESTRUCTURAL (IA): Validación cruzada V1.00
+                    from analyzers import congruence_analyzer
+                    with st.spinner("Ejecutando Prueba de Congruencia Estructural automática..."):
+                        st.session_state.congruence_report = congruence_analyzer.analyze_document_congruence(
+                            st.session_state.detailed_report, 
+                            st.session_state.pages_data
+                        )
                     
                     st.session_state.analizado = True
                 else:
@@ -105,6 +120,32 @@ if uploaded_file is not None:
             tab1, tab2, tab3 = st.tabs(["📊 Análisis Inicial", "🔍 Análisis Detallado", "📑 Revisión del documento"])
 
             with tab1:
+                # Mostrar Índice Inteligente si existe
+                if st.session_state.index_card:
+                    idx_data = st.session_state.index_card
+                    st.markdown(f"## 📑 {idx_data.get('title', 'Índice del Documento')}")
+                    
+                    # Score de Congruencia
+                    cong = idx_data.get('congruence', {})
+                    score = cong.get('score', 0)
+                    
+                    c_idx1, c_idx2 = st.columns([1, 2])
+                    with c_idx1:
+                        st.metric("Score de Congruencia Semántica", f"{score}%")
+                    with c_idx2:
+                        st.info(f"**Análisis de Congruencia:**\n{cong.get('analysis', '')}")
+                    
+                    # Tabla de contenidos
+                    with st.expander("Ver Tabla de Contenidos Detallada", expanded=True):
+                        idx_list = idx_data.get('sections', [])
+                        if idx_list:
+                            for item in idx_list:
+                                st.write(f"🔹 **Pág {item['page']}:** {item['title']} *({item.get('observation', 'Sin observaciones')})*")
+                        else:
+                            st.write("No se detectaron secciones claras.")
+                    
+                    st.divider()
+
                 st.markdown("### Interpretación de Páginas (Texto + Imágenes)")
                 for idx, page in enumerate(pages_data):
                     with st.expander(f"Página {page['page_number']}", expanded=(idx==0)):
@@ -359,6 +400,45 @@ if uploaded_file is not None:
                         st.success("✅ No se detectaron discrepancias de identidad en los sellos digitales analizados.")
                     else:
                         st.caption("Sin datos para analizar suplantación.")
+
+                # --- PRUEBA 3. CONGRUENCIA ESTRUCTURAL (IA) ---
+                st.divider()
+                st.subheader("3. Prueba de Congruencia Estructural (IA)")
+                st.info("🎯 Esta prueba utiliza IA para validar la alineación lógica entre Título, Objetivo, Alcance, Políticas y Procedimientos.")
+
+                if st.session_state.get('detailed_report'):
+                    if st.session_state.get('congruence_report'):
+                        cr = st.session_state.congruence_report
+                        
+                        # Conclusión General
+                        estado = cr.get("conclusion", {}).get("estado", "No disponible")
+                        if "✅" in estado or "Congruente" in estado and "No" not in estado:
+                            st.success(f"### Resultado Final: {estado}")
+                        elif "⚠️" in estado or "Parcialmente" in estado:
+                            st.warning(f"### Resultado Final: {estado}")
+                        else:
+                            st.error(f"### Resultado Final: {estado}")
+
+                        # Matriz de Congruencia
+                        st.markdown("#### Matriz de Congruencia")
+                        import pandas as pd
+                        df = pd.DataFrame(cr.get("matriz", []))
+                        st.table(df)
+
+                        # Hallazgos y Riesgos
+                        c_res1, c_res2 = st.columns(2)
+                        with c_res1:
+                            st.markdown("**🔍 Hallazgos Clave**")
+                            for h in cr.get("conclusion", {}).get("hallazgos", []):
+                                st.write(f"- {h}")
+                        with c_res2:
+                            st.markdown("**🚨 Riesgos Detectados**")
+                            for r in cr.get("conclusion", {}).get("riesgos", []):
+                                st.write(f"- {r}")
+                        
+                        st.info(f"**Impacto en Auditoría:** {cr.get('conclusion', {}).get('impacto', 'N/A')}")
+                else:
+                    st.warning("Debe realizar el análisis detallado previamente para habilitar esta prueba.")
 
                 # Contenedores vacíos preparados para futuras iteraciones
                 col_rev1, col_rev2 = st.columns(2)

@@ -1,17 +1,20 @@
+from analyzers import index_analyzer
+
 def generate_index_card(pages_data):
     """
-    Analyzes page content to build a Table of Contents (Index).
+    Analyzes page content to build a Table of Contents (Index) using AI.
     """
-    # Placeholder logic
-    index_card = {
-        "title": "Índice General",
-        "sections": [
-            {"title": "Introducción", "page": 1},
-            {"title": "Desarrollo", "page": 2} # Mock
-        ],
-        "congruence_score": 95
+    ai_index = index_analyzer.extract_index_and_congruence(pages_data)
+    
+    if ai_index:
+        return ai_index
+    
+    # Fallback if AI fails
+    return {
+        "title": "Índice (Generación Fallida)",
+        "sections": [],
+        "congruence": {"score": 0, "analysis": "No se pudo generar el análisis de índice."}
     }
-    return index_card
 
 def generate_executive_summary(pages_data, index_card):
     """

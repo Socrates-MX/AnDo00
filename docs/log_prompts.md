@@ -213,3 +213,28 @@
 - Se guardó el prompt en `docs/prompts/prompt_system_v1_00.md` sin requerir confirmación.
 - Se actualizó `.cursorrules` para forzar el cumplimiento de estas reglas.
 - Se realizó la sincronización automática con GitHub (Push exitoso).
+
+## Sesión 27: Implementación de Índice Inteligente e IA Logic
+**Prompt/Tarea:** Implementar construcción de índice y validación de congruencia mediante Gemini 2.0 Flash.
+**Resultado:**
+- Se creó `src/analyzers/index_analyzer.py` con prompt especializado para extracción de TOC y score de congruencia.
+- Se actualizó `report_generator.py` para integrar la llamada a la IA.
+- Se modificó la interfaz Streamlit (Pestaña 1) para mostrar una métrica de congruencia y una tabla de contenidos detallada.
+- Se documentó el plan en `docs/prompts/plan_indice_inteligente.md`.
+
+## Sesión 28: Implementación de Prueba de Congruencia Estructural
+**Prompt/Tarea:** Implementar el Módulo de Revisión de Congruencia Estructural (IA) basado en el Prompt Oficial V1.00.
+**Resultado:**
+- Se persistió el prompt oficial en `docs/prompts/prompt_prueba_ia_congruencia_v1_00.md`.
+- Se creó el motor de análisis `src/analyzers/congruence_analyzer.py`.
+- Se integró la sección **3. Prueba de Congruencia Estructural (IA)** en la pestaña de Revisión de Streamlit.
+- El sistema ahora genera una **Matriz de Congruencia** automática comparando Título, Objetivo, Alcance, Políticas y Participantes.
+- Se incluye una conclusión objetiva con Hallazgos, Riesgos e Impacto en Auditoría.
+
+## Sesión 29: Automatización de Prueba de Congruencia
+**Prompt/Tarea:** Eliminar la ejecución manual de la Prueba de Congruencia y automatizarla en el flujo principal.
+**Resultado:**
+- Se integró la llamada a `congruence_analyzer` dentro del bloque principal de ejecución del análisis (Step 4).
+- Se eliminó el botón manual en la pestaña `Revisión del documento`.
+- El sistema ahora entrega la matriz de congruencia de forma inmediata junto con el resto del reporte.
+- Se mantiene el cumplimiento del System Prompt V1.00.
