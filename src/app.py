@@ -62,8 +62,10 @@ if uploaded_file is not None:
         st.session_state.analizado = False
     if 'pages_data' not in st.session_state:
         st.session_state.pages_data = None
-    if 'detailed_report' not in st.session_state:
-        st.session_state.detailed_report = None
+    if 'congruence_report' not in st.session_state:
+        st.session_state.congruence_report = None
+    if 'process_cross_report' not in st.session_state:
+        st.session_state.process_cross_report = None
     if 'index_card' not in st.session_state:
         st.session_state.index_card = None
 
@@ -103,6 +105,14 @@ if uploaded_file is not None:
                     with st.spinner("Ejecutando Prueba de Congruencia Estructural automática..."):
                         st.session_state.congruence_report = congruence_analyzer.analyze_document_congruence(
                             st.session_state.detailed_report, 
+                            st.session_state.pages_data
+                        )
+                    
+                    # 5. PRUEBA DE CRUCE OPERATIVO: Diagrama vs Procedimientos V1.00
+                    from analyzers import process_cross_analyzer
+                    with st.spinner("Ejecutando Cruce Diagrama vs Procedimientos..."):
+                        st.session_state.process_cross_report = process_cross_analyzer.analyze_process_crossing(
+                            st.session_state.detailed_report,
                             st.session_state.pages_data
                         )
                     
@@ -473,6 +483,70 @@ if uploaded_file is not None:
                         st.info(f"**Impacto en Auditoría (Opcional):** {cr.get('conclusion', {}).get('impacto', 'N/A')}")
                 else:
                     st.warning("Debe realizar el análisis detallado previamente para habilitar esta prueba.")
+
+                # --- PRUEBA 4. CRUCE OPERATIVO (DIAGRAMA vs PROCEDIMIENTOS) ---
+                st.divider()
+                st.subheader("4. Prueba de Cruce Operativo (Diagrama vs Procedimientos)")
+                st.info("🔄 Esta prueba valida la correspondencia paso a paso entre el Diagrama de Flujo y los Procedimientos escritos.")
+
+                if st.session_state.get('process_cross_report'):
+                    px = st.session_state.process_cross_report
+                    
+                    # Conclusión Operativa
+                    estado_px = px.get("conclusion_operativa", {}).get("estado", "No disponible")
+                    if "✅" in estado_px or "Congruente" in estado_px and "No" not in estado_px:
+                        st.success(f"### Resultado Final: {estado_px}")
+                    elif "⚠️" in estado_px or "Parcialmente" in estado_px:
+                        st.warning(f"### Resultado Final: {estado_px}")
+                    else:
+                        st.error(f"### Resultado Final: {estado_px}")
+
+                    # Matriz de Cruce
+                    st.markdown("#### Matriz de Cruce")
+                    import pandas as pd
+                    df_px = pd.DataFrame(px.get("matriz", []))
+                    st.table(df_px)
+
+                    # Hallazgos y Riesgos EDITABLES (PX)
+                    st.markdown("---")
+                    c_px1, c_px2 = st.columns(2)
+                    
+                    hallazgos_px = px.get("conclusion_operativa", {}).get("hallazgos", [])
+                    riesgos_px = px.get("conclusion_operativa", {}).get("riesgos", [])
+
+                    with c_px1:
+                        st.markdown("**🔍 Hallazgos Críticos**")
+                        upd_h_px = []
+                        for i, h in enumerate(hallazgos_px):
+                            val = st.text_area(f"Editar Hallazgo PX {i+1}", value=h, key=f"edit_h_px_{i}", height=100, label_visibility="collapsed")
+                            upd_h_px.append(val)
+                        
+                        if st.button("➕ Agregar Hallazgo Operativo"):
+                            hallazgos_px.append("Nuevo hallazgo operativo...")
+                            st.session_state.process_cross_report["conclusion_operativa"]["hallazgos"] = hallazgos_px
+                            st.rerun()
+
+                    with c_px2:
+                        st.markdown("**🚨 Riesgos Operativos**")
+                        upd_r_px = []
+                        for i, r in enumerate(riesgos_px):
+                            val = st.text_area(f"Editar Riesgo PX {i+1}", value=r, key=f"edit_r_px_{i}", height=100, label_visibility="collapsed")
+                            upd_r_px.append(val)
+                        
+                        if st.button("➕ Agregar Riesgo Operativo"):
+                            riesgos_px.append("Nuevo riesgo operativo...")
+                            st.session_state.process_cross_report["conclusion_operativa"]["riesgos"] = riesgos_px
+                            st.rerun()
+                    
+                    st.divider()
+                    if st.button("💾 Guardar Cambios en Cruce Operativo"):
+                        st.session_state.process_cross_report["conclusion_operativa"]["hallazgos"] = upd_h_px
+                        st.session_state.process_cross_report["conclusion_operativa"]["riesgos"] = upd_r_px
+                        st.success("✅ Los hallazgos y riesgos operativos han sido actualizados.")
+                    
+                    st.info(f"**Impacto Operativo:** {px.get('conclusion_operativa', {}).get('impacto', 'N/A')}")
+                else:
+                    st.caption("Esperando resultados del cruce operativo...")
 
                 # Contenedores vacíos preparados para futuras iteraciones
                 col_rev1, col_rev2 = st.columns(2)
