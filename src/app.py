@@ -131,7 +131,14 @@ if uploaded_file is not None:
                     
                     c_idx1, c_idx2 = st.columns([1, 2])
                     with c_idx1:
-                        st.metric("Score de Congruencia Semántica", f"{score}%")
+                        st.metric(
+                            "Score de Congruencia Semántica", 
+                            f"{score}%",
+                            help="Mide la alineación semántica entre lo que el documento promete en sus títulos y lo que realmente desarrolla en el texto de cada página.\n\n"
+                                 "✅ 85-100%: Alineación Total\n"
+                                 "⚠️ 50-84%: Alineación Parcial/Vaga\n"
+                                 "❌ <50%: Incongruencia Crítica"
+                        )
                     with c_idx2:
                         st.info(f"**Análisis de Congruencia:**\n{cong.get('analysis', '')}")
                     
@@ -425,18 +432,45 @@ if uploaded_file is not None:
                         df = pd.DataFrame(cr.get("matriz", []))
                         st.table(df)
 
-                        # Hallazgos y Riesgos
+                        # Hallazgos y Riesgos EDITABLES
+                        st.markdown("---")
                         c_res1, c_res2 = st.columns(2)
+                        
+                        # Obtener listas actuales del estado de sesión
+                        hallazgos = cr.get("conclusion", {}).get("hallazgos", [])
+                        riesgos = cr.get("conclusion", {}).get("riesgos", [])
+
                         with c_res1:
                             st.markdown("**🔍 Hallazgos Clave**")
-                            for h in cr.get("conclusion", {}).get("hallazgos", []):
-                                st.write(f"- {h}")
+                            updated_hallazgos = []
+                            for i, h in enumerate(hallazgos):
+                                val = st.text_area(f"Editar Hallazgo {i+1}", value=h, key=f"edit_h_{i}", height=100, label_visibility="collapsed")
+                                updated_hallazgos.append(val)
+                            
+                            if st.button("➕ Agregar Hallazgo"):
+                                hallazgos.append("Nuevo hallazgo detectado...")
+                                st.session_state.congruence_report["conclusion"]["hallazgos"] = hallazgos
+                                st.rerun()
+
                         with c_res2:
                             st.markdown("**🚨 Riesgos Detectados**")
-                            for r in cr.get("conclusion", {}).get("riesgos", []):
-                                st.write(f"- {r}")
+                            updated_riesgos = []
+                            for i, r in enumerate(riesgos):
+                                val = st.text_area(f"Editar Riesgo {i+1}", value=r, key=f"edit_r_{i}", height=100, label_visibility="collapsed")
+                                updated_riesgos.append(val)
+                            
+                            if st.button("➕ Agregar Riesgo"):
+                                riesgos.append("Nuevo riesgo identificado...")
+                                st.session_state.congruence_report["conclusion"]["riesgos"] = riesgos
+                                st.rerun()
                         
-                        st.info(f"**Impacto en Auditoría:** {cr.get('conclusion', {}).get('impacto', 'N/A')}")
+                        st.divider()
+                        if st.button("💾 Guardar Cambios en Análisis de Congruencia"):
+                            st.session_state.congruence_report["conclusion"]["hallazgos"] = updated_hallazgos
+                            st.session_state.congruence_report["conclusion"]["riesgos"] = updated_riesgos
+                            st.success("✅ Los hallazgos y riesgos han sido actualizados y guardados en el reporte.")
+                        
+                        st.info(f"**Impacto en Auditoría (Opcional):** {cr.get('conclusion', {}).get('impacto', 'N/A')}")
                 else:
                     st.warning("Debe realizar el análisis detallado previamente para habilitar esta prueba.")
 

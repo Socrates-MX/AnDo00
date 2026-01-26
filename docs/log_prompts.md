@@ -238,3 +238,17 @@
 - Se eliminó el botón manual en la pestaña `Revisión del documento`.
 - El sistema ahora entrega la matriz de congruencia de forma inmediata junto con el resto del reporte.
 - Se mantiene el cumplimiento del System Prompt V1.00.
+
+## Sesión 30: Edición Interactiva de Hallazgos y Riesgos
+**Prompt/Tarea:** Permitir que el usuario edite, agregue y guarde cambios en los Hallazgos y Riesgos de la Prueba de Congruencia.
+**Resultado:**
+- Se reemplazó la visualización estática por áreas de texto editables (`st.text_area`) con claves únicas.
+- Se implementaron botones para agregar dinámicamente nuevos hallazgos y riesgos a la lista.
+- Se añadió un botón de guardado (`Guardar Cambios`) que actualiza el estado de la sesión y confirma la persistencia.
+- El diseño mantiene la estructura de dos columnas solicitada.
+
+## Sesión 31: Documentación de Ayuda del Score de Congruencia
+**Prompt/Tarea:** Implementar un tooltip de ayuda (help) para explicar el Score de Congruencia Semántica en la UI.
+**Resultado:**
+- Se actualizó el componente `st.metric` en `app.py` para incluir un parámetro `help`.
+- El tooltip ahora explica qué mide el score y el significado de las calificaciones (Alineación Total, Parcial o Incongruencia Crítica) al pasar el cursor sobre el indicador.
