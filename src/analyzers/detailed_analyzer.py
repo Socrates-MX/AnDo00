@@ -1,5 +1,6 @@
 from analyzers import image_analyzer
 import google.generativeai as genai
+from utils.ai_retry import call_with_retry
 import os
 
 def extract_detailed_analysis(pages_data, file_path=None):
@@ -89,7 +90,7 @@ def extract_detailed_analysis(pages_data, file_path=None):
     prompt_items.append(main_prompt)
 
     try:
-        response = model.generate_content(prompt_items)
+        response = call_with_retry(model.generate_content, prompt_items)
         clean_response = response.text.replace("```json", "").replace("```", "").strip()
         return clean_response
     except Exception as e:

@@ -1,9 +1,10 @@
 📜 REGLAS DEL AGENTE - PROYECTO ANALIZADOR DE DOCUMENTOS (AnDo)
 🎯 MISIÓN Y COMPORTAMIENTO
-Actuar como el Ingeniero Líder de GetAuditUP. El Agente debe seguir estrictamente el "PROMPT OFICIAL — PROTOTIPO GOOGLE AI STUDIO" proporcionado.
+Actuar como el Ingeniero Líder de GetAuditUP. El Agente debe seguir estrictamente el "SYSTEM PROMPT — ANTIGRAVITY (LOCKED)" definido en docs/system_prompt_definitivo.md.
 
 📂 GESTIÓN DE ARCHIVOS Y PERSISTENCIA (OBLIGATORIO)
-Documentación Local: Todos los prompts importantes, planes de desarrollo y documentación generada deben guardarse como archivos .md dentro de una carpeta llamada /docs en la raíz del proyecto.
+Regla V1.00: Toda estructura Markdown (planes, prompts, logs) debe guardarse automáticamente en /docs/prompts/ o /docs/bitacoras/ según corresponda. No requiere confirmación del usuario.
+Directiva Master: Siempre sincronizar con GitHub tras guardar.
 
 Planificación Previa: Antes de comenzar cualquier tarea compleja, el Agente debe crear un archivo llamado plan_[nombre_tarea].md dentro de /docs.
 

@@ -1,12 +1,11 @@
 import os
 import google.generativeai as genai
+from utils.ai_retry import call_with_retry
 from dotenv import load_dotenv
 
 load_dotenv()
 
-API_KEY = os.getenv("GOOGLE_API_KEY")
-if API_KEY:
-    genai.configure(api_key=API_KEY)
+# genai configuration will be handled inside functions to ensure fresh API keys
 
 def analyze_images_on_page(page_content):
     """
@@ -24,8 +23,11 @@ def generate_image_description(image_bytes):
     """
     Sends image bytes to Google Gemini for real description.
     """
-    if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key or api_key == "YOUR_API_KEY_HERE":
         return "[ERROR] API Key no configurada en .env."
+    
+    genai.configure(api_key=api_key)
 
     try:
         # Detect MIME type using PIL instead of deprecated imghdr
@@ -39,7 +41,7 @@ def generate_image_description(image_bytes):
             "data": image_bytes
         }
         
-        response = model.generate_content([
+        response = call_with_retry(model.generate_content, [
             "Analiza esta imagen extraída de un documento PDF para una auditoría.\n"
             "REGLAS:\n"
             "1. Si es LOGOTIPO o MARCA DE AGUA decorativa, responde: [SKIP]\n"
@@ -55,15 +57,18 @@ def generate_text_interpretation(text_content):
     """
     Sends raw page text to Gemini for an executive interpretation.
     """
-    if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key or api_key == "YOUR_API_KEY_HERE":
         return "[ERROR] API Key no configurada."
+    
+    genai.configure(api_key=api_key)
 
     if not text_content or len(text_content.strip()) < 10:
         return "No hay suficiente texto para interpretar."
 
     try:
         model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content([
+        response = call_with_retry(model.generate_content, [
             "Analiza el siguiente texto extraído de una página de un documento corporativo.\n"
             "TAREA: Proporciona una INTERPRETACIÓN ejecutiva y concreta de este contenido.\n"
             "Enfócate en obligaciones, hallazgos, riesgos o datos clave para una auditoría.\n"

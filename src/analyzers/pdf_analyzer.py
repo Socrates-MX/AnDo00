@@ -14,29 +14,34 @@ def analyze_pdf(file_path):
             text = page.extract_text() or ""
             
             # Annotation Extraction (Electronic Signatures / Stamps)
+            annots_found = []
             annot_text = ""
             if "/Annots" in page:
                 for annot in page["/Annots"]:
                     obj = annot.get_object()
-                    # Capturamos contenidos de notas, sellos y campos de texto libre
                     content = obj.get("/Contents")
-                    if content:
-                        annot_text += f"\n[Annot]: {content}"
+                    user_title = obj.get("/T")
                     
-                    # Extraer de Appearance Streams (común en sellos electrónicos)
-                    if "/AP" in obj:
-                        ap = obj["/AP"]
-                        if "/N" in ap:
-                            appearance = ap["/N"].get_object()
-                            if hasattr(appearance, "extract_text"):
-                                ap_text = appearance.extract_text()
-                                if ap_text:
-                                    annot_text += f" (Detail: {ap_text.strip()})"
-                    
-                    # Título del anotador (usualmente el usuario que firmó)
-                    title = obj.get("/T")
-                    if title:
-                        annot_text += f" (User: {title})"
+                    if content or user_title:
+                        # Extraer de Appearance Streams (común en sellos electrónicos)
+                        detail = ""
+                        if "/AP" in obj:
+                            ap = obj["/AP"]
+                            if "/N" in ap:
+                                appearance = ap["/N"].get_object()
+                                if hasattr(appearance, "extract_text"):
+                                    detail = appearance.extract_text() or ""
+                        
+                        annots_found.append({
+                            "content": str(content) if content else "",
+                            "user": str(user_title) if user_title else "",
+                            "detail": detail.strip()
+                        })
+                        
+                        # Mantener texto para compatibilidad con prompt de IA
+                        if content: annot_text += f"\n[Annot]: {content}"
+                        if detail: annot_text += f" (Detail: {detail.strip()})"
+                        if user_title: annot_text += f" (User: {user_title})"
             
             full_text = text + annot_text
 
@@ -55,7 +60,8 @@ def analyze_pdf(file_path):
                 "page_number": i + 1,
                 "text_content": full_text,
                 "token_count_est": len(full_text.split()),
-                "images": images_found
+                "images": images_found,
+                "annots": annots_found
             }
             results.append(page_card)
             

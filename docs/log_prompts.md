@@ -174,3 +174,33 @@
 
 
 
+
+## Sesión 22: Formalización del System Prompt (LOCKED)
+**Prompt/Tarea:** Implementar el "SYSTEM PROMPT — ANTIGRAVITY (LOCKED)" para gobierno operativo permanente.
+**Resultado:**
+- Se creó `docs/system_prompt_definitivo.md` con las reglas de jerarquía absoluta, persistencia automática en `/docs/`, trazabilidad y sincronización.
+- Se actualizó `.cursorrules` para que apunte formalmente a este documento `Locked`.
+- Se inició la transición al modo de gobierno operativo estricto.
+
+## Sesión 23: Resolución de Carga de API Key
+**Prompt/Tarea:** Corregir error '[ERROR] API Key no configurada' en la interfaz.
+**Resultado:**
+- Se identificó que la variable `API_KEY` en `image_analyzer.py` era estática y no detectaba cambios en el archivo `.env` sin reiniciar el servidor.
+- Se modificó `image_analyzer.py` para obtener la clave dinámicamente dentro de cada función.
+- Se reinició el servidor Streamlit para asegurar la carga completa del entorno.
+
+## Sesión 24: Implementación de Control de Suplantación
+**Prompt/Tarea:** Implementar validación cruzada entre Usuario de Sistema y Nombre en Sello Digital.
+**Resultado:**
+- Se modificó `pdf_analyzer.py` para extraer metadatos estructurados de anotaciones (STAMPS).
+- Se implementó en `app.py` (Tab 3) una lógica de comparación robusta (limpieza de caracteres y matching).
+- El sistema ahora genera una alerta roja de `Discrepancia de Identidad Digital` si el usuario que ejecutó la firma no coincide con el contenido del sello.
+- Se añadió una sección de éxito si no hay discrepancias para dar certeza al auditor.
+
+## Sesión 25: Manejo de Errores de Cuota (429 Retries)
+**Prompt/Tarea:** Corregir error '429 Resource exhausted' de Gemini al procesar múltiples imágenes.
+**Resultado:**
+- Se creó `src/utils/ai_retry.py` con lógica de **Exponential Backoff** y Jitter para reintentar llamadas fallidas por cuota.
+- Se integró la lógica de reintento en `image_analyzer.py` y `detailed_analyzer.py`.
+- Se implementó un **throttle** (pequeña pausa) de 0.5s entre peticiones en `app.py` para reducir la ráfaga de tráfico a la API.
+- El sistema ahora es más robusto ante límites de velocidad impuestos por Google AI Studio.

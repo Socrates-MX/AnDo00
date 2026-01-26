@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import shutil
+import time
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -75,8 +76,10 @@ if uploaded_file is not None:
                 if st.session_state.pages_data:
                     for page in st.session_state.pages_data:
                         page['text_interpret'] = image_analyzer.generate_text_interpretation(page['text_content'])
+                        time.sleep(0.5) # Throttle
                         for img in page.get('images', []):
                             img['description'] = image_analyzer.generate_image_description(img['image_bytes'])
+                            time.sleep(0.5) # Throttle
                     
                     # 2. AUTOMATIZACIÓN (V1.03): Disparar Informe Detallado inmediatamente
                     from analyzers import detailed_analyzer
@@ -310,6 +313,52 @@ if uploaded_file is not None:
                         st.success("Cambios guardados. Se ha generado la trazabilidad histórica de validación.")
                 else:
                     st.warning("Debe realizar el análisis para ver esta tabla.")
+
+                # --- PRUEBA 2. DETECCIÓN DE SUPLANTACIÓN ---
+                st.subheader("2. Detección de Suplantación (Firmas Digitales)")
+                st.info("💡 Esta prueba valida si el usuario del sistema que colocó el sello coincide con el nombre impreso en la firma.")
+
+                impersonation_alerts = []
+                if st.session_state.get('pages_data'):
+                    for page in st.session_state.pages_data:
+                        for annot in page.get('annots', []):
+                            content = annot.get('content', '').lower()
+                            detail = annot.get('detail', '').lower()
+                            user = annot.get('user', '').lower()
+
+                            if user and (content or detail):
+                                # Limpiar puntos, guiones y espacios para comparación robusta
+                                def clean(t):
+                                    return "".join(c for c in t if c.isalnum()).replace(" ", "")
+                                
+                                c_clean = clean(content)
+                                d_clean = clean(detail)
+                                u_clean = clean(user)
+
+                                # Alerta si el usuario no aparece en ninguna de las descripciones del sello
+                                if u_clean not in c_clean and u_clean not in d_clean:
+                                    impersonation_alerts.append({
+                                        "page": page['page_number'],
+                                        "user_sys": annot.get('user'),
+                                        "name_doc": annot.get('content') or annot.get('detail'),
+                                        "type": "Posible Suplantación / Subrogación"
+                                    })
+
+                if impersonation_alerts:
+                    for alert in impersonation_alerts:
+                        st.error(f"🚨 **ALERTA: Discrepancia de Identidad Digital (Pág {alert['page']})**")
+                        col_a1, col_a2 = st.columns(2)
+                        with col_a1:
+                            st.warning(f"**Firmante en PDF:**\n{alert['name_doc']}")
+                        with col_a2:
+                            st.error(f"**Usuario del Sistema:**\n{alert['user_sys']}")
+                        st.caption("🔍 El usuario que ejecutó la firma digital no parece coincidir con el nombre del titular en el sello.")
+                        st.divider()
+                else:
+                    if st.session_state.get('pages_data'):
+                        st.success("✅ No se detectaron discrepancias de identidad en los sellos digitales analizados.")
+                    else:
+                        st.caption("Sin datos para analizar suplantación.")
 
                 # Contenedores vacíos preparados para futuras iteraciones
                 col_rev1, col_rev2 = st.columns(2)
