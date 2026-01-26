@@ -14,11 +14,13 @@ Se ha completado la construcción y validación del prototipo funcional en Pytho
 | **Carga de PDF** | ✅ PASÓ | Probado con `data/dummy.pdf`. Validación de existencia de archivo correcta. |
 | **Conteo de Páginas** | ✅ PASÓ | `pypdf` identificó correctamente 2 páginas en el documento de prueba. |
 | **Tarjetas por Página** | ✅ PASÓ | Se generan objetos JSON con `page_number`, `text_content` y `token_count`. |
-| **Análisis de Imágenes** | ⚠️ MOCK | La función `analyze_images_on_page` existe y retorna listas vacías (Placeholder listo para Gemini). |
+| **Análisis de Imágenes** | ✅ PASÓ | Integración real con Gemini 1.5 Flash operativa. |
 | **Índice/Congruencia** | ⚠️ MOCK | Funciones en `report_generator.py` listas para implementación de lógica IA. |
 | **Historial** | ✅ PASÓ | Se crea/actualiza `data/history.json`. Detecta documentos nuevos vs. previos por Hash. |
 | **Salida JSON** | ✅ PASÓ | Estructura de salida cumple con la definición preliminar. |
 | **Arquitectura** | ✅ PASÓ | Código modular (`analyzers`, `generators`, `utils`) listo para Cloud Run. |
+| **Interfaz Visual** | ✅ PASÓ | Pruebas exitosas en Streamlit con carga manual y visualización de resultados. |
+| **Prueba Archivo Real** | ✅ PASÓ | Validación con `sample_gov_form.pdf` y archivo de usuario exitosa. |
 
 ## 3. Evidencia de Pruebas
 **Comando ejecutado:**

@@ -36,8 +36,8 @@ def main(pdf_path):
             if page['images']:
                 print(f"  > Imágenes detectadas en Página {page['page_number']}: {len(page['images'])}")
                 for img in page['images']:
-                    # En un caso real pasaríamos img['data'] (bytes) 
-                    desc = image_analyzer.generate_image_description(img['name']) 
+                    # Pasamos los bytes reales recuperados por pdf_analyzer
+                    desc = image_analyzer.generate_image_description(img['image_bytes']) 
                     img['description'] = desc
 
     
@@ -55,8 +55,12 @@ def main(pdf_path):
         history.log_analysis(doc_info['id'], analysis_version)
         print("Resultados guardados en historial.")
         
-        # Output preview
-        print(json.dumps(pages_data[0], indent=2, ensure_ascii=False)) # Show page 1
+        # Output preview (limpiamos los bytes para que no rompa el print)
+        for p in pages_data:
+            for img in p['images']:
+                img.pop('image_bytes', None)
+
+        print(json.dumps(pages_data[0], indent=2, ensure_ascii=False)) 
     else:
         print("Falló el análisis del PDF.")
 

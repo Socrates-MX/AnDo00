@@ -17,19 +17,56 @@ def analyze_images_on_page(page_content):
     # For this prototype, we return an empty list or mock data to valid integration.
     return []
 
-def generate_image_description(image_data):
+import imghdr
+
+def generate_image_description(image_bytes):
     """
-    Sends an image to Google Gemini for description.
+    Sends image bytes to Google Gemini for real description.
     """
     if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
-        return "[MOCK] Configura tu GOOGLE_API_KEY en .env para usar Gemini Real."
+        return "[ERROR] API Key no configurada en .env."
 
     try:
-        model = genai.GenerativeModel('gemini-pro-vision')
-        # Note: image_data should be PIL Image or bytes. 
-        # For this prototype step, we assume image_data is valid input or handle error.
-        # response = model.generate_content(["Describe this image for a business audit.", image_data])
-        # return response.text
-        return "[MOCK CONNECTED] Gemini API Configurada. (Falta pasar imagen real)"
+        ext = imghdr.what(None, h=image_bytes)
+        mime_type = f"image/{ext}" if ext else "image/png"
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        
+        image_part = {
+            "mime_type": mime_type,
+            "data": image_bytes
+        }
+        
+        response = model.generate_content([
+            "Analiza esta imagen extraída de un documento PDF para una auditoría.\n"
+            "REGLAS:\n"
+            "1. Si es LOGOTIPO o MARCA DE AGUA decorativa, responde: [SKIP]\n"
+            "2. Si es sustantiva (gráficos, tablas, firmas): Extrae texto (OCR) e interpreta "
+            "de manera CONCRETA el significado para el negocio/auditoría.",
+            image_part
+        ])
+        return response.text.strip()
     except Exception as e:
-        return f"[ERROR] Falló la llamada a Gemini: {e}"
+        return f"[ERROR] Falló Gemini (Imagen): {str(e)}"
+
+def generate_text_interpretation(text_content):
+    """
+    Sends raw page text to Gemini for an executive interpretation.
+    """
+    if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
+        return "[ERROR] API Key no configurada."
+
+    if not text_content or len(text_content.strip()) < 10:
+        return "No hay suficiente texto para interpretar."
+
+    try:
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content([
+            "Analiza el siguiente texto extraído de una página de un documento corporativo.\n"
+            "TAREA: Proporciona una INTERPRETACIÓN ejecutiva y concreta de este contenido.\n"
+            "Enfócate en obligaciones, hallazgos, riesgos o datos clave para una auditoría.\n"
+            "Evita introducciones innecesarias. Sé directo y profesional.\n\n"
+            f"TEXTO A ANALIZAR:\n{text_content}"
+        ])
+        return response.text.strip()
+    except Exception as e:
+        return f"[ERROR] Falló Gemini (Texto): {str(e)}"

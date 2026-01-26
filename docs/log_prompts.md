@@ -73,6 +73,104 @@
 - Repositorio actualizado: `feat: Integración de análisis de imágenes con API Gemini (Mock/Real) y pruebas E2E`.
 - **Fase de Prototipo AI Studio:** COMPLETADA.
 
+## Sesión 12: Interfaz Visual (Streamlit)
+**Prompt/Tarea:** Agregar interfaz web para pruebas en navegador.
+**Resultado:**
+- Se creó `src/app.py` utilizando Streamlit.
+- Se habilitó la carga de archivos drag-and-drop.
+- Se visualizan resultados en tiempo real (Texto + Análisis de Imágenes Gemini).
+- Ejecución: `streamlit run src/app.py`.
+
+## Sesión 13: Verificación con Archivos Reales
+**Prompt/Tarea:** Solicitud de prueba con PDF real y validación de usuario.
+**Resultado:**
+- El sistema confirmó que el usuario puede cargar PDFs reales mediante la interfaz Streamlit.
+- Se descargó un PDF de muestra de W3C (`data/sample_gov_form.pdf`) y se procesó exitosamente a través de `src/main.py`.
+- **Estado Final:** Prototipo validado funcionalmente tanto en CLI como en Web UI con archivos sintéticos y reales.
+
+## Sesión 14: Preparación para Cloud Run (Containerización)
+**Prompt/Tarea:** Siguiente paso (Productivización).
+**Resultado:**
+- Se creó `Dockerfile` optimizado para Google Cloud Run (Python 3.12 Slim).
+- Se configuró el puerto 8080 (estándar de Cloud Run).
+- Se actualizó el reporte de validación con los últimos hallazgos.
+
+## Sesión 15: Activación de IA Real (Gemini 1.5 Flash)
+**Prompt/Tarea:** Activa análisis real.
+**Resultado:**
+- Se eliminó el Mock de `image_analyzer.py`.
+- Se integró `gemini-1.5-flash` para análisis multimodal.
+- `pdf_analyzer.py` ahora captura y transfiere los bytes reales de las imágenes.
+- La interfaz Streamlit (`app.py`) ahora muestra una vista previa de la imagen extraída y la descripción real generada por Gemini.
+
+## Sesión 16: Corrección de Error 404 y Upgrade a Gemini 2.0
+**Prompt/Tarea:** Revisar y corregir error 404 en análisis de imágenes.
+**Resultado:**
+- Se identificó que `gemini-1.5-flash` arrojaba error 404 en el entorno actual.
+- Se actualizó el modelo a `gemini-2.0-flash` (validado mediante `list_models()`).
+- Se implementó detección automática de MIME Type usando `imghdr` para mayor precisión.
+- Se añadió un mecanismo de fallback para robustez.
+- El sistema ahora procesa imágenes reales exitosamente.
+- El sistema ahora procesa imágenes reales exitosamente.
+
+## Sesión 17: Filtrado de Logos/Marcas de Agua y Análisis Ejecutivo
+**Prompt/Tarea:** Distinguir entre imágenes sustantivas y decorativas (Logos/Watermarks). Enfocar el análisis en interpretación concreta y OCR de imágenes relevantes.
+**Resultado:**
+- Se actualizó el prompt de Gemini en `image_analyzer.py` con reglas de clasificación estrictas:
+    - Retorna `[SKIP]` para logotipos y marcas de agua.
+    - Realiza OCR detallado e interpretación ejecutiva (números, tendencias) para imágenes con contenido sustantivo.
+- Se modificó `app.py` para:
+    - Omitir visualmente las imágenes clasificadas como `[SKIP]`.
+    - Presentar un análisis más robusto centrado en "Interpretación Ejecutiva".
+- Se mantiene la extracción de texto base del PDF como actividad primaria.
+- El sistema ahora procesa imágenes reales exitosamente.
+
+## Sesión 18: Doble Interpretación IA (Texto e Imágenes)
+**Prompt/Tarea:** Distinguir entre imágenes (Logos) y Marcas de Agua (omitir). Implementar interpretación doble obligatoria: una para el texto y otra para imágenes sustantivas.
+**Resultado:**
+- Se añadió `generate_text_interpretation` en el motor de IA.
+- Se refinó la lógica de filtrado: Logos y Marcas de Agua ahora retornan correctamente `[SKIP]`.
+- La interfaz Streamlit se reestructuró:
+    - **Sección 1:** Interpretación Ejecutiva del Texto (IA analiza el contenido escrito).
+    - **Sección 2:** Análisis de Activos Visuales (IA analiza gráficos, tablas o firmas que NO sean logos).
+    - **Sección 3:** Texto Raw (Oculto en un estado expandible para verificar integridad).
+
+## Sesión 19: Estructura por Pestañas (Tabs)
+**Prompt/Tarea:** Implementar dos pestañas de resultados: "Análisis Inicial" (resultados actuales) y "Análisis Detallado" (preparado para futuro).
+**Resultado:**
+- Se integró `st.tabs` en `app.py`.
+- **Pestaña 1 (Análisis Inicial):** Contiene el flujo completo de interpretación doble por página diseñado anteriormente.
+- **Pestaña 2 (Análisis Detallado):** Se configuró como un área reservada con placeholders para reportes avanzados y correlación entre páginas.
+
+## Sesión 20: Implementación de Reporte Detallado Estructurado
+**Prompt/Tarea:** Definir campos específicos para la pestaña "Análisis Detallado" (Metadata del PDF, Contenido Principal, Aprobaciones, Políticas, Diagramas, etc.).
+**Resultado:**
+- Se creó `src/analyzers/detailed_analyzer.py` para realizar una extracción semántica global usando Gemini 2.0 Flash.
+- Se implementaron 7 secciones en la web UI bajo la pestaña "Análisis Detallado":
+    1. **Datos del Archivo:** Metadatos técnicos básicos.
+    2. **Contenido Principal:** Revisión, fecha, título, autor.
+    3. **Revisado y Aprobado:** Matriz de firmas y puestos.
+    4. **Objetivo y Alcance:** Extracción completa de propósitos.
+    5. **Diagrama de Flujo:** Interpretación textual de la lógica de negocio.
+    6. **Políticas:** Detalle, participantes y resumen por IA.
+    7. **Procedimientos:** Pasos y tabla de responsables.
+
+## Sesión 21: Ajuste de Clasificación de Firmas (V1.02)
+**Prompt/Tarea:** Ajustar la columna "Firma" para NO mostrar nombres propios y clasificar únicamente como "Firma Electrónica" o "Firma Manual Escrita".
+**Resultado:**
+- Se actualizó `detailed_analyzer.py` para seguir el **Prompt Oficial V1.02**.
+- La IA ahora evalúa visualmente el origen de la firma (timestamps, texto digitado vs trazo manuscrito).
+- La columna **Firma** ahora es categórica (Electrónica/Manual/No identificable) protegiendo la privacidad del nombre en ese campo específico.
+- Se mantienen Nombre, Puesto y Fecha originales para trazabilidad.
+
+
+
+
+
+
+
+
+
 
 
 
