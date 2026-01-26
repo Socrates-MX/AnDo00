@@ -204,3 +204,12 @@
 - Se integró la lógica de reintento en `image_analyzer.py` y `detailed_analyzer.py`.
 - Se implementó un **throttle** (pequeña pausa) de 0.5s entre peticiones en `app.py` para reducir la ráfaga de tráfico a la API.
 - El sistema ahora es más robusto ante límites de velocidad impuestos por Google AI Studio.
+
+## Sesión 26: Upgrade a Gobierno Operativo V1.00
+**Prompt/Tarea:** Implementar System Prompt (LOCKED) V1.00 con persistencia automática y sincronización GitHub.
+**Resultado:**
+- Se crearon las carpetas `/docs/prompts/` y `/docs/bitacoras/`.
+- Se actualizó `docs/system_prompt_definitivo.md` a la versión 1.00.
+- Se guardó el prompt en `docs/prompts/prompt_system_v1_00.md` sin requerir confirmación.
+- Se actualizó `.cursorrules` para forzar el cumplimiento de estas reglas.
+- Se realizó la sincronización automática con GitHub (Push exitoso).
