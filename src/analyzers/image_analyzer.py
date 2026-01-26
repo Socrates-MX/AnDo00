@@ -17,7 +17,8 @@ def analyze_images_on_page(page_content):
     # For this prototype, we return an empty list or mock data to valid integration.
     return []
 
-import imghdr
+from PIL import Image
+import io
 
 def generate_image_description(image_bytes):
     """
@@ -27,8 +28,10 @@ def generate_image_description(image_bytes):
         return "[ERROR] API Key no configurada en .env."
 
     try:
-        ext = imghdr.what(None, h=image_bytes)
-        mime_type = f"image/{ext}" if ext else "image/png"
+        # Detect MIME type using PIL instead of deprecated imghdr
+        img = Image.open(io.BytesIO(image_bytes))
+        mime_type = Image.MIME.get(img.format, "image/png")
+        
         model = genai.GenerativeModel('gemini-2.0-flash')
         
         image_part = {
