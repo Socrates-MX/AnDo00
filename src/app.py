@@ -14,7 +14,7 @@ from persistence import document_manager
 from utils.supabase_client import get_supabase_client
 from generators import pdf_report_generator
 
-st.set_page_config(page_title="Prototipo AnDo", layout="wide", page_icon="📄")
+st.set_page_config(page_title="AnDo | GetAuditUP Compliance", layout="wide", page_icon="📄")
 
 # --- CUSTOM CSS: GETAUDITUP COLORS V01.01 ---
 st.markdown("""
