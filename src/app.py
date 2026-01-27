@@ -146,7 +146,7 @@ with st.sidebar:
     status_sb = "🟢 SB OK" if sb_client else "🟡 SB OFF"
     
     st.sidebar.caption(f"**Estado:** {status_api} | {status_sb}")
-    st.sidebar.caption("v02.01 | GetAuditUP Compliance")
+    st.sidebar.caption("© 2026 GetAuditUP. Empowered by FMConsulting.")
 
 # Área de carga
 uploaded_file = st.file_uploader("Elige un archivo PDF", type="pdf")
@@ -339,7 +339,7 @@ if uploaded_file is not None:
 
             with tab2:
                 st.markdown("### 📋 Reporte de Auditoría Detallado")
-                st.caption("© 2026 Analizador de Documentos. Empowered by FMConsulting V02.01")
+                st.caption("© 2026 GetAuditUP. Empowered by FMConsulting.")
                 
                 # --- DESCARGA TAB 2 ---
                 t2_col1, t2_col2 = st.columns([3, 1])
