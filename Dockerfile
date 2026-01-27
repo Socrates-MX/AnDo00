@@ -17,9 +17,6 @@ COPY data/ data/
 # NOTE: In production, 'data/' should be a mounted volume or external storage, not copied.
 # Keeping it here for the prototype self-contained demo.
 
-COPY .env . 
-# WARNING: Never copy .env to production images. This is for local prototype convenience only.
-
 # Expose Streamlit port
 EXPOSE 8080
 

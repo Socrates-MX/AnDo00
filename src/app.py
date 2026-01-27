@@ -9,7 +9,9 @@ load_dotenv()
 
 # Importar lógica del backend
 from analyzers import pdf_analyzer, image_analyzer
-from utils import history
+from utils import history, diff_engine
+from persistence import document_manager
+from utils.supabase_client import get_supabase_client
 
 st.set_page_config(page_title="Prototipo AnDo", layout="wide", page_icon="📄")
 
@@ -26,6 +28,15 @@ with st.sidebar:
     else:
         st.error("❌ API Key No Configurada (Modo Mock)")
     
+    st.divider()
+    
+    # Estado de Supabase
+    sb_client = get_supabase_client()
+    if sb_client:
+        st.success("☁️ Supabase: Conectado")
+    else:
+        st.warning("⚠️ Supabase: Desconectado (.env faltante)")
+        
     st.divider()
     st.info("Sube un PDF para comenzar el análisis.")
 
@@ -49,13 +60,21 @@ if uploaded_file is not None:
         st.write(f"📁 **Archivo:** {uploaded_file.name}")
         st.write(f"📏 **Tamaño:** {uploaded_file.size / 1024:.2f} KB")
         
-        # Historial
-        doc_info, is_new = history.register_document(temp_path)
-        if is_new:
-            st.info("🆕 Documento Nuevo")
+        # 1. Registro Local (Historial de sesión)
+        doc_info, is_new_local = history.register_document(temp_path)
+        
+        # 2. Registro SUPABASE (V1.00)
+        file_hash = document_manager.calculate_pdf_hash(uploaded_file.getvalue())
+        existing_doc = document_manager.check_document_existence(file_hash)
+        
+        if existing_doc:
+            st.warning(f"🔔 Documento ya registrado en Supabase (Versión {existing_doc['version_actual']})")
+            st.session_state.is_existing_supabase = True
+            st.session_state.db_doc_id = existing_doc['id']
         else:
-            st.warning("⚠️ Documento Previamente Analizado")
-            st.json(doc_info, expanded=False)
+            st.info("🆕 Documento Nuevo en Supabase")
+            st.session_state.is_existing_supabase = False
+            st.session_state.db_doc_id = None
 
     # --- Estado de Sesión ---
     if 'analizado' not in st.session_state:
@@ -68,6 +87,12 @@ if uploaded_file is not None:
         st.session_state.process_cross_report = None
     if 'index_card' not in st.session_state:
         st.session_state.index_card = None
+    if 'is_existing_supabase' not in st.session_state:
+        st.session_state.is_existing_supabase = False
+    if 'db_doc_id' not in st.session_state:
+        st.session_state.db_doc_id = None
+    if 'pending_persistence' not in st.session_state:
+        st.session_state.pending_persistence = False
 
     with col2:
         st.subheader("Resultados del Análisis")
@@ -127,7 +152,7 @@ if uploaded_file is not None:
             st.success(f"Análisis Completado: {total_pages} páginas procesadas y Reporte Detallado generado.")
             
             # Definición de Pestañas (Tabs)
-            tab1, tab2, tab3 = st.tabs(["📊 Análisis Inicial", "🔍 Análisis Detallado", "📑 Revisión del documento"])
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 Análisis Inicial", "🔍 Análisis Detallado", "📑 Revisión del documento", "☁️ Persistencia Supabase"])
 
             with tab1:
                 # Mostrar Índice Inteligente si existe
@@ -557,6 +582,60 @@ if uploaded_file is not None:
                 with col_rev2:
                     st.subheader("⚖️ Resultados de Comparación")
                     st.caption("Sin registros actuales.")
+
+            with tab4:
+                st.markdown("### ☁️ Gestión de Persistencia en Supabase")
+                st.info("Sincroniza y versiona los resultados del análisis en la nube.")
+                
+                if not sb_client:
+                    st.error("❌ Conexión no configurada. Agregue SUPABASE_URL y SUPABASE_KEY al archivo .env")
+                elif st.session_state.detailed_report:
+                    if not st.session_state.is_existing_supabase:
+                        st.subheader("🆕 Documento No Registrado")
+                        st.write("Presiona el botón para crear el registro inicial en la base de datos.")
+                        if st.button("💾 Guardar Versión Inicial (V1)"):
+                            doc_data = {
+                                "nombre_archivo": uploaded_file.name,
+                                "hash_documento": file_hash,
+                                "numero_paginas": total_pages,
+                                "estado": "revisado",
+                                "version_actual": 1
+                            }
+                            if document_manager.save_new_document(doc_data, st.session_state.detailed_report):
+                                st.success("✅ Documento guardado exitosamente.")
+                                st.session_state.is_existing_supabase = True
+                                st.rerun()
+                            else:
+                                st.error("Error al guardar. Verifique los logs.")
+                    else:
+                        st.subheader("🔄 Documento Existente")
+                        st.write(f"ID del Documento: `{st.session_state.db_doc_id}`")
+                        
+                        # Recuperar versión actual para comparar
+                        last_analysis = document_manager.get_latest_analysis(st.session_state.db_doc_id)
+                        if last_analysis:
+                            v_actual = last_analysis['version']
+                            diffs = diff_engine.compare_analyses(last_analysis['payload_completo'], st.session_state.detailed_report)
+                            
+                            if not diffs:
+                                st.success(f"✅ El análisis actual es idéntico a la Versión {v_actual} en Supabase.")
+                            else:
+                                st.warning(f"⚠️ Se detectaron cambios respecto a la Versión {v_actual}")
+                                st.markdown("#### Diferencias Detectadas:")
+                                import pandas as pd
+                                st.table(pd.DataFrame(diffs))
+                                
+                                st.info("¿Deseas aceptar estos cambios y generar una nueva versión?")
+                                if st.button("✅ Aceptar Cambios y Generar V"+str(v_actual+1)):
+                                    new_v = v_actual + 1
+                                    # 1. Actualizar versión
+                                    if document_manager.update_document_version(st.session_state.db_doc_id, new_v, st.session_state.detailed_report):
+                                        # 2. Registrar revisión
+                                        document_manager.register_revision(st.session_state.db_doc_id, v_actual, new_v, {"diffs": diffs})
+                                        st.success(f"🚀 Versión {new_v} persistida correctamente.")
+                                        st.rerun()
+                else:
+                    st.warning("Debe realizar el análisis IA antes de persistir datos.")
 
 
 

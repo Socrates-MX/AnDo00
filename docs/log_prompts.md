@@ -262,3 +262,13 @@
 - Se integró la sección **4. Prueba de Cruce Operativo** en la pestaña de Revisión.
 - Se implementó la visualización de la matriz y la edición interactiva de hallazgos/riesgos operativos.
 - Se realizó el cierre documental y sincronización GitHub.
+
+## Sesión 33: Integración de Supabase (Persistencia y Versionado)
+**Prompt/Tarea:** Implementar la conexión con Supabase para persistencia, versionado y detección de cambios (Diff).
+**Resultado:**
+- Se persistió el prompt oficial en `docs/prompts/prompt_integracion_supabase_v1_00.md`.
+- Se generó el script SQL inicial en `docs/sql_init_supabase.sql` con el modelo de datos (Documents, Analysis, Revisions, History).
+- Se creó el cliente Supabase y el gestor de persistencia con soporte para Hashing (SHA-256).
+- Se implementó un motor de diferencias (`diff_engine.py`) para comparar versiones JSON.
+- Se añadió la pestaña **☁️ Persistencia Supabase** en la UI con flujo de: identificación de nuevo vs existente, visualización de Tabla de Diferencias y Aceptación Explícita de cambios para versionar.
+- Se actualizó `requirements.txt` con la librería `supabase`.
