@@ -12,6 +12,7 @@ from analyzers import pdf_analyzer, image_analyzer
 from utils import history, diff_engine
 from persistence import document_manager
 from utils.supabase_client import get_supabase_client
+from generators import pdf_report_generator
 
 st.set_page_config(page_title="Prototipo AnDo", layout="wide", page_icon="📄")
 
@@ -39,6 +40,28 @@ with st.sidebar:
         
     st.divider()
     st.info("Sube un PDF para comenzar el análisis.")
+
+    # --- DESCARGA GLOBAL (V1.04) ---
+    if st.session_state.get('analizado'):
+        st.divider()
+        st.subheader("📥 Exportar Resultados")
+        global_filename = st.text_input("Nombre del archivo PDF", value=f"Reporte_AnDo_{int(time.time())}", placeholder="Reporte_AnDo_...")
+        
+        all_data = {
+            "pages_data": st.session_state.pages_data,
+            "detailed_report": st.session_state.detailed_report,
+            "congruence_report": st.session_state.congruence_report,
+            "index_card": st.session_state.index_card
+        }
+        
+        pdf_bytes = pdf_report_generator.create_full_report_pdf(all_data)
+        st.download_button(
+            label="📄 Descargar Reporte Integral",
+            data=pdf_bytes,
+            file_name=f"{global_filename}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
 
 # Área de carga
 uploaded_file = st.file_uploader("Elige un archivo PDF", type="pdf")
@@ -188,7 +211,16 @@ if uploaded_file is not None:
                     
                     st.divider()
 
-                st.markdown("### Interpretación de Páginas (Texto + Imágenes)")
+
+                col_t1, col_t1_dl = st.columns([3, 1])
+                with col_t1:
+                    st.markdown("### Interpretación de Páginas (Texto + Imágenes)")
+                with col_t1_dl:
+                    t1_filename = st.text_input("Nombre de pestaña 1", value="Analisis_Inicial_AnDo", label_visibility="collapsed")
+                    t1_content = {"Páginas": [f"Pág {p['page_number']}: {p.get('text_interpret', '')}" for p in pages_data]}
+                    t1_pdf = pdf_report_generator.create_tab_pdf("Análisis Inicial", t1_content)
+                    st.download_button("📥 Descargar Tab 1", t1_pdf, f"{t1_filename}.pdf", "application/pdf", use_container_width=True)
+
                 for idx, page in enumerate(pages_data):
                     with st.expander(f"Página {page['page_number']}", expanded=(idx==0)):
                         st.subheader("📝 Análisis del Contenido Escrito")
@@ -217,6 +249,15 @@ if uploaded_file is not None:
                 st.markdown("### 📋 Reporte de Auditoría Detallado")
                 st.caption("© 2026 Analizador de Documentos. Empowered by FMConsulting V1.03")
                 
+                # --- DESCARGA TAB 2 ---
+                t2_col1, t2_col2 = st.columns([3, 1])
+                with t2_col2:
+                    t2_filename = st.text_input("Nombre tab 2", value="Auditoria_Detallada_AnDo", label_visibility="collapsed")
+                    if st.session_state.detailed_report:
+                        t2_pdf = pdf_report_generator.create_tab_pdf("Informe de Auditoría Detallado", st.session_state.detailed_report)
+                        st.download_button("📥 Descargar Tab 2", t2_pdf, f"{t2_filename}.pdf", "application/pdf", use_container_width=True)
+                st.divider()
+
                 # Mostrar reporte si ya existe (Generado automáticamente)
                 if st.session_state.detailed_report:
                     data = st.session_state.detailed_report
@@ -274,6 +315,17 @@ if uploaded_file is not None:
                 st.markdown("### 📑 Revisión del documento")
                 st.markdown("**Historial y validación de revisiones del documento analizado.**")
                 
+                # --- DESCARGA TAB 3 ---
+                t3_col1, t3_col2 = st.columns([3, 1])
+                with t3_col2:
+                    t3_filename = st.text_input("Nombre tab 3", value="Revision_Documento_AnDo", label_visibility="collapsed")
+                    t3_content = {
+                        "Congruencia": st.session_state.congruence_report.get('conclusion', {}) if st.session_state.congruence_report else "No analizado",
+                        "Cruce Operativo": st.session_state.process_cross_report.get('conclusion_operativa', {}) if st.session_state.process_cross_report else "No analizado"
+                    }
+                    t3_pdf = pdf_report_generator.create_tab_pdf("Revisión del Documento", t3_content)
+                    st.download_button("📥 Descargar Tab 3", t3_pdf, f"{t3_filename}.pdf", "application/pdf", use_container_width=True)
+
                 st.divider()
 
                 # --- PRUEBA 1. VERIFICACIÓN DE FIRMAS ---

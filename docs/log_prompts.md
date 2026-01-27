@@ -293,5 +293,11 @@
     - Uso de `use_container_width=True` para visualizar diagramas grandes.
     - Etiquetas de interpretación más claras ("Interpretación Técnica de Imagen").
     - Manejo de estados vacíos para evitar secciones sin información.
-- Se verificó la consistencia del flujo para facilitar la prueba de Cruce Operativo.
+## Sesión 36: Implementación de Exportación a PDF
+**Prompt/Tarea:** Agregar botones de descarga PDF por pestaña y un reporte integral, permitiendo personalizar el nombre del archivo.
+**Resultado:**
+- Se integró la librería `fpdf2` en `requirements.txt`.
+- Se creó `src/generators/pdf_report_generator.py` con lógica para generar PDFs de pestañas individuales y reportes completos.
+- Se actualizaron las 4 pestañas de la UI de Streamlit para incluir botones de descarga con nombre de archivo configurable.
+- Se añadió una sección de descarga global en el Sidebar para exportar toda la información de AnDo en un solo documento.
 
