@@ -112,7 +112,6 @@
 - Se añadió un mecanismo de fallback para robustez.
 - El sistema ahora procesa imágenes reales exitosamente.
 - El sistema ahora procesa imágenes reales exitosamente.
-
 ## Sesión 17: Filtrado de Logos/Marcas de Agua y Análisis Ejecutivo
 **Prompt/Tarea:** Distinguir entre imágenes sustantivas y decorativas (Logos/Watermarks). Enfocar el análisis en interpretación concreta y OCR de imágenes relevantes.
 **Resultado:**
@@ -126,6 +125,7 @@
 - El sistema ahora procesa imágenes reales exitosamente.
 
 ## Sesión 18: Doble Interpretación IA (Texto e Imágenes)
+
 **Prompt/Tarea:** Distinguir entre imágenes (Logos) y Marcas de Agua (omitir). Implementar interpretación doble obligatoria: una para el texto y otra para imágenes sustantivas.
 **Resultado:**
 - Se añadió `generate_text_interpretation` en el motor de IA.
@@ -272,3 +272,13 @@
 - Se implementó un motor de diferencias (`diff_engine.py`) para comparar versiones JSON.
 - Se añadió la pestaña **☁️ Persistencia Supabase** en la UI con flujo de: identificación de nuevo vs existente, visualización de Tabla de Diferencias y Aceptación Explícita de cambios para versionar.
 - Se actualizó `requirements.txt` con la librería `supabase`.
+
+## Sesión 34: Despliegue Exitoso en Cloud Run
+**Prompt/Tarea:** Continuar con la verificación de Supabase y el despliegue en Cloud Run.
+**Resultado:**
+- Se verificó la conexión a Supabase y la existencia de la tabla `documents` (1 registro detectado).
+- Se habilitó la API `cloudresourcemanager.googleapis.com` en GCP.
+- Se ejecutó exitosamente el script `deploy.ps1`.
+- La aplicación está en producción: [https://ando-compliance-app-385970621522.us-central1.run.app](https://ando-compliance-app-385970621522.us-central1.run.app).
+- Se inició la estructura de `/docs/bitacoras/` para cumplimiento del System Prompt V1.00.
+
