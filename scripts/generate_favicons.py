@@ -11,12 +11,12 @@ def prepare_favicons(input_path, output_dir):
     if bbox:
         img = img.crop(bbox)
     
-    # Add 10% padding as requested
+    # Remove padding to maximize size (0% margin)
     w, h = img.size
-    padding = int(max(w, h) * 0.1)
-    new_size = (w + 2*padding, h + 2*padding)
-    new_img = Image.new("RGBA", new_size, (255, 255, 255, 0))
-    new_img.paste(img, (padding, padding))
+    max_side = max(w, h)
+    new_img = Image.new("RGBA", (max_side, max_side), (255, 255, 255, 0))
+    offset = ((max_side - w) // 2, (max_side - h) // 2)
+    new_img.paste(img, offset)
     
     # Save versions
     if not os.path.exists(output_dir):
@@ -32,6 +32,6 @@ def prepare_favicons(input_path, output_dir):
 
 if __name__ == "__main__":
     prepare_favicons(
-        "c:/Repo/AnDo00/data/favicon_getauditup_final.png",
+        "c:/Repo/AnDo00/data/favicon_new_test.png",
         "c:/Repo/AnDo00/data/favicons"
     )
