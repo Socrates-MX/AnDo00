@@ -32,6 +32,6 @@ def prepare_favicons(input_path, output_dir):
 
 if __name__ == "__main__":
     prepare_favicons(
-        "c:/Repo/AnDo00/data/favicon_new_test.png",
+        "c:/Repo/AnDo00/data/favicon_source.png",
         "c:/Repo/AnDo00/data/favicons"
     )
