@@ -13,8 +13,16 @@ from utils import history, diff_engine
 from persistence import document_manager
 from utils.supabase_client import get_supabase_client
 from generators import pdf_report_generator
+from utils import favicon_injector
 
-st.set_page_config(page_title="AnDo | GetAuditUP Compliance", layout="wide", page_icon="📄")
+st.set_page_config(page_title="AnDo | GetAuditUP Compliance", layout="wide", page_icon="data/favicons/favicon_master.png")
+
+# Inyectar favicons multiresolución (Paso 4.1 del Prompt Oficial V02.01)
+favicon_injector.inject_favicons(
+    "data/favicons/favicon-16x16.png",
+    "data/favicons/favicon-32x32.png",
+    "data/favicons/apple-touch-icon.png"
+)
 
 # --- CUSTOM CSS: GETAUDITUP COLORS V01.01 ---
 st.markdown("""
