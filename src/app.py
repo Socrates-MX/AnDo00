@@ -204,8 +204,11 @@ if uploaded_file is not None:
                                     st.caption(f"ℹ️ Imagen `{img['name']}` omitida (Logotipo/Marca de Agua).")
                                     continue
                                 
-                                st.image(img['image_bytes'], caption=f"Imagen: {img['name']}", width=400)
-                                st.warning(f"**Hallazgo en Imagen:**\n\n{desc}")
+                                st.image(img['image_bytes'], caption=f"Imagen Detectada: {img['name']}", use_container_width=True)
+                                if desc and desc.strip():
+                                    st.warning(f"**Interpretación Técnica de Imagen:**\n\n{desc}")
+                                else:
+                                    st.info("No se obtuvo una interpretación detallada para esta imagen.")
                         
                         with st.status(f"Ver Texto Original Extraído (Pág {idx+1})"):
                             st.text_area("OCR/Raw Text", page['text_content'], height=150, key=f"text_{idx}")

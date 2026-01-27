@@ -282,3 +282,16 @@
 - La aplicación está en producción: [https://ando-compliance-app-385970621522.us-central1.run.app](https://ando-compliance-app-385970621522.us-central1.run.app).
 - Se inició la estructura de `/docs/bitacoras/` para cumplimiento del System Prompt V1.00.
 
+## Sesión 35: Corrección de Inconsistencias en Diagramas de Flujo
+**Prompt/Tarea:** Corregir "No identificado" en Diagramas de Flujo y mejorar hallazgos de imágenes.
+**Resultado:**
+- Se mejoró el prompt en `image_analyzer.py` para identificar y describir específicamente diagramas de flujo y flujogramas.
+- Se actualizó `detailed_analyzer.py` para:
+    - Integrar las descripciones detalladas de imágenes en el contexto enviado a Gemini.
+    - Incluir una instrucción multimodal explícita para buscar visualmente diagramas de flujo.
+- Se optimizó la interfaz en `app.py`:
+    - Uso de `use_container_width=True` para visualizar diagramas grandes.
+    - Etiquetas de interpretación más claras ("Interpretación Técnica de Imagen").
+    - Manejo de estados vacíos para evitar secciones sin información.
+- Se verificó la consistencia del flujo para facilitar la prueba de Cruce Operativo.
+
