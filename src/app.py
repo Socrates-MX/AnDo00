@@ -16,30 +16,103 @@ from generators import pdf_report_generator
 
 st.set_page_config(page_title="Prototipo AnDo", layout="wide", page_icon="📄")
 
-# Layout
-st.title("📄 Analizador de Documentos (AnDo)")
-st.markdown("**Prototipo V1.0 - Powered by Google Gemini**")
+# --- CUSTOM CSS: GETAUDITUP COLORS V01.01 ---
+st.markdown("""
+<style>
+    /* 1. Títulos y Tipografía (Azul Corporativo #1F4FA3) */
+    h1, h2, h3, h4, h5, h6 {
+        color: #1F4FA3 !important;
+    }
+    
+    /* 2. Botones Primarios (Verde Lima #C6E600 | Texto Azul Noche) */
+    div.stButton > button[kind="primary"], .stDownloadButton > button {
+        background-color: #C6E600 !important;
+        color: #0F172A !important;
+        border: none !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
+    }
+    
+    /* 3. Botones Secundarios (Blanco | Texto Azul Corporativo) */
+    div.stButton > button[kind="secondary"] {
+        background-color: #FFFFFF !important;
+        color: #1F4FA3 !important;
+        border: 1px solid #1F4FA3 !important;
+        border-radius: 8px !important;
+    }
+
+    /* 4. Pestañas (Tabs) */
+    .stTabs [data-baseweb="tab-highlight"] {
+        background-color: #C6E600 !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        color: #64748B !important;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #1F4FA3 !important;
+        font-weight: bold !important;
+    }
+
+    /* 5. Alertas de Riesgo */
+    div[data-testid="stNotification-error"] {
+        background-color: #FEF2F2 !important;
+        color: #F87171 !important;
+        border: 1px solid #F87171 !important;
+    }
+    div[data-testid="stNotification-warning"] {
+        background-color: #F8FAFC !important;
+        color: #C6E600 !important;
+        border: 1px solid #C6E600 !important;
+    }
+    div[data-testid="stNotification-success"] {
+        background-color: #F0FDF4 !important;
+        color: #22C55E !important;
+        border: 1px solid #22C55E !important;
+    }
+
+    /* 6. Tarjetas Interactivas (Info Card) */
+    .info-card {
+        background-color: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: default;
+        margin-bottom: 20px;
+    }
+    .info-card:hover {
+        transform: translateY(-5px) scale(1.01);
+        box-shadow: 0 10px 15px -3px rgba(31, 79, 163, 0.2);
+        border-color: #1F4FA3;
+    }
+    .info-card-title {
+        color: #1F4FA3;
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Layout head
+st.title("Analizador de Documentos (AnDo)")
+st.markdown("**GetAuditUP Compliance**")
 
 # Sidebar para estado y configuración
 with st.sidebar:
-    st.header("Estado del Sistema")
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if api_key and api_key != "YOUR_API_KEY_HERE":
-        st.success("✅ API Key Configurada")
-    else:
-        st.error("❌ API Key No Configurada (Modo Mock)")
-    
-    st.divider()
-    
-    # Estado de Supabase
-    sb_client = get_supabase_client()
-    if sb_client:
-        st.success("☁️ Supabase: Conectado")
-    else:
-        st.warning("⚠️ Supabase: Desconectado (.env faltante)")
-        
-    st.divider()
+    # --- LOGO CORPORATIVO V01.01 ---
+    logo_path = "data/logo_getauditup.png"
+    if os.path.exists(logo_path):
+        st.image(logo_path, use_container_width=True)
+        st.divider()
+
     st.info("Sube un PDF para comenzar el análisis.")
+
+    # --- DESCARGA GLOBAL (V1.04) ---
 
     # --- DESCARGA GLOBAL (V1.04) ---
     if st.session_state.get('analizado'):
@@ -63,6 +136,18 @@ with st.sidebar:
             use_container_width=True
         )
 
+    # --- FOOTER DE ESTADO (PEQUEÑO) ---
+    st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True) # Empujar al final
+    st.divider()
+    api_key = os.getenv("GOOGLE_API_KEY")
+    sb_client = get_supabase_client()
+    
+    status_api = "🟢 API OK" if (api_key and api_key != "YOUR_API_KEY_HERE") else "🔴 API ERR"
+    status_sb = "🟢 SB OK" if sb_client else "🟡 SB OFF"
+    
+    st.sidebar.caption(f"**Estado:** {status_api} | {status_sb}")
+    st.sidebar.caption("v02.01 | GetAuditUP Compliance")
+
 # Área de carga
 uploaded_file = st.file_uploader("Elige un archivo PDF", type="pdf")
 
@@ -79,9 +164,16 @@ if uploaded_file is not None:
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        st.subheader("Información")
-        st.write(f"📁 **Archivo:** {uploaded_file.name}")
-        st.write(f"📏 **Tamaño:** {uploaded_file.size / 1024:.2f} KB")
+        # --- TARJETA DE INFORMACIÓN CON MOVIMIENTO ---
+        st.markdown(f"""
+            <div class="info-card">
+                <div class="info-card-title">ℹ️ Información del Documento</div>
+                <div style="font-size: 0.9rem; color: #64748B;">
+                    <b>📂 Archivo:</b> {uploaded_file.name}<br>
+                    <b>📏 Tamaño:</b> {uploaded_file.size / 1024:.2f} KB
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
         
         # 1. Registro Local (Historial de sesión)
         doc_info, is_new_local = history.register_document(temp_path)
@@ -247,7 +339,7 @@ if uploaded_file is not None:
 
             with tab2:
                 st.markdown("### 📋 Reporte de Auditoría Detallado")
-                st.caption("© 2026 Analizador de Documentos. Empowered by FMConsulting V1.03")
+                st.caption("© 2026 Analizador de Documentos. Empowered by FMConsulting V02.01")
                 
                 # --- DESCARGA TAB 2 ---
                 t2_col1, t2_col2 = st.columns([3, 1])

@@ -299,5 +299,13 @@
 - Se integró la librería `fpdf2` en `requirements.txt`.
 - Se creó `src/generators/pdf_report_generator.py` con lógica para generar PDFs de pestañas individuales y reportes completos.
 - Se actualizaron las 4 pestañas de la UI de Streamlit para incluir botones de descarga con nombre de archivo configurable.
-- Se añadió una sección de descarga global en el Sidebar para exportar toda la información de AnDo en un solo documento.
+## Sesión 37: Alineación con Identidad Corporativa (GetAuditUP)
+**Prompt/Tarea:** Implementar los lineamientos de color corporativo V01.01 definidos en el manual de identidad visual de GetAuditUP.
+**Resultado:**
+- Se inyectó CSS personalizado en `app.py` para establecer el Azul Corporativo (`#1F4FA3`) y Verde Lima (`#C6E600`) como base de la UI.
+- Se configuraron botones primarios (CTAs) con fondo Verde Lima y texto Azul Noche.
+- Se actualizaron los estilos de alertas semánticas para Riesgos (Rojo Suave), Éxito (Verde) y Advertencias.
+- Se estandarizaron títulos, métricas y pestañas según la jerarquía visual aprobada.
+- Se actualizó el pie de página a la versión FMConsulting V02.01.
+- Se integró el logo oficial de GetAuditUP en la barra lateral de la UI y en el encabezado de los reportes PDF.
 
