@@ -77,13 +77,29 @@ def get_latest_analysis(doc_id):
 
 def update_document_version(doc_id, new_version, analysis_payload):
     supabase = get_supabase_client()
-    if not supabase: return False
+    if not supabase:
+        return "Error: Cliente Supabase no inicializado."
+    
     try:
-        supabase.table('ando_documents').update({'current_version': new_version}).eq('id', doc_id).execute()
-        analysis_data = {'document_id': doc_id, 'full_analysis_payload': analysis_payload, 'version_number': new_version}
-        supabase.table('ando_analysis_versions').insert(analysis_data).execute()
+        # 1. Update master document current_version
+        upd_res = supabase.table('ando_documents').update({'current_version': new_version}).eq('id', doc_id).execute()
+        if not upd_res.data:
+            return f"Error al actualizar documento maestro: {getattr(upd_res, 'error', 'Error desconocido o RLS')}"
+
+        # 2. Insert new analysis version
+        analysis_data = {
+            'document_id': doc_id, 
+            'full_analysis_payload': analysis_payload, 
+            'version_number': new_version
+        }
+        ins_res = supabase.table('ando_analysis_versions').insert(analysis_data).execute()
+        
+        if not ins_res.data:
+             return f"Error al insertar nueva versión de análisis: {getattr(ins_res, 'error', 'Error desconocido')}"
+
         return True
-    except Exception: return False
+    except Exception as e:
+        return f"Excepción al actualizar versión: {str(e)}"
 
 def register_revision(doc_id, v_old, v_new, diff_payload):
     supabase = get_supabase_client()

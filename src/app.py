@@ -33,81 +33,142 @@ except:
 # --- CUSTOM CSS: GETAUDITUP COLORS V01.01 ---
 st.markdown("""
 <style>
-    /* 1. Títulos y Tipografía (Azul Corporativo #1F4FA3) */
+    /* --- AN-DO DESIGN SYSTEM V2.1: STRUCTURED EXECUTIVE --- */
+    
+    /* 1. Tipografía Global */
     h1, h2, h3, h4, h5, h6 {
-        color: #1F4FA3 !important;
+        color: #1e3c72 !important; /* Royal Navy */
+        font-family: 'Helvetica Neue', sans-serif;
     }
     
-    /* 2. Botones Primarios (Verde Lima #C6E600 | Texto Azul Noche) */
-    div.stButton > button[kind="primary"], .stDownloadButton > button {
-        background-color: #C6E600 !important;
-        color: #0F172A !important;
+    /* 2. BOTONES GLOBALES (Estilo Homogeneizado: IMAGEN 2 STANDARD) */
+    div.stButton > button, div.stDownloadButton > button {
+        /* FORMA: Rectángulo con bordes redondeados (No Pill) */
+        border-radius: 8px !important; 
+        
+        /* TIPOGRAFÍA */
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        font-size: 15px !important;
+        padding: 0.75rem 1.5rem !important;
+        
+        /* TRANSICIONES */
+        transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
         border: none !important;
-        font-weight: bold !important;
-        border-radius: 8px !important;
-    }
-    
-    /* 3. Botones Secundarios (Blanco | Texto Azul Corporativo) */
-    div.stButton > button[kind="secondary"] {
-        background-color: #FFFFFF !important;
-        color: #1F4FA3 !important;
-        border: 1px solid #1F4FA3 !important;
-        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
 
-    /* 4. Pestañas (Tabs) */
-    .stTabs [data-baseweb="tab-highlight"] {
-        background-color: #C6E600 !important;
+    /* 2a. Botones PRIMARIOS y DEFAULT (Sólido Azul Ejecutivo) */
+    div.stButton > button[kind="primary"], div.stButton > button:not([kind="secondary"]) {
+        /* Azul Sólido Corporativo (Match Imagen 2) */
+        background: #1e3c72 !important; 
+        background: linear-gradient(180deg, #244280 0%, #1e3c72 100%) !important; /* Sutil degradado vertical para volumen */
+        color: #ffffff !important;
     }
-    .stTabs [data-baseweb="tab"] {
-        color: #64748B !important;
+    div.stButton > button[kind="primary"]:hover, div.stButton > button:not([kind="secondary"]):hover {
+        background: #2a5298 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(30, 60, 114, 0.2) !important;
+    }
+    div.stButton > button[kind="primary"]:active, div.stButton > button:not([kind="secondary"]):active {
+        background: #162c55 !important;
+        transform: translateY(1px);
+    }
+
+    /* 2b. Botones SECUNDARIOS (Outline / Ghost) */
+    div.stButton > button[kind="secondary"] {
+        background-color: transparent !important;
+        border: 2px solid #1e3c72 !important;
+        color: #1e3c72 !important;
+        box-shadow: none !important;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #f0f4f8 !important;
+        color: #2a5298 !important;
+        border-color: #2a5298 !important;
+    }
+
+    /* 2c. Botones de Descarga (Distintivo pero congruente) */
+    div.stDownloadButton > button {
+        background: #008f39 !important; /* Excel Green Standard */
+        color: white !important;
+    }
+    div.stDownloadButton > button:hover {
+         background: #00a642 !important;
+    }
+
+    /* 2d. Fix TEXTO interno */
+    div.stButton > button p, div.stDownloadButton > button p {
+        font-weight: 700 !important;
+        font-size: 15px !important;
+    }
+
+    /* 3. Pestañas (Tabs) */
+    .stTabs [data-baseweb="tab-highlight"] {
+        background-color: #1e3c72 !important;
     }
     .stTabs [aria-selected="true"] {
-        color: #1F4FA3 !important;
+        color: #1e3c72 !important;
         font-weight: bold !important;
     }
-
-    /* 5. Alertas de Riesgo */
-    div[data-testid="stNotification-error"] {
-        background-color: #FEF2F2 !important;
-        color: #F87171 !important;
-        border: 1px solid #F87171 !important;
-    }
-    div[data-testid="stNotification-warning"] {
-        background-color: #F8FAFC !important;
-        color: #C6E600 !important;
-        border: 1px solid #C6E600 !important;
-    }
-    div[data-testid="stNotification-success"] {
-        background-color: #F0FDF4 !important;
-        color: #22C55E !important;
-        border: 1px solid #22C55E !important;
+    .stTabs [aria-selected="false"] {
+        color: #64748B !important;
     }
 
-    /* 6. Tarjetas Interactivas (Info Card) */
+    /* 4. Tarjetas Informativas */
     .info-card {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 12px;
+        border-radius: 8px; /* Matching buttons */
         padding: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        cursor: default;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         margin-bottom: 20px;
     }
-    .info-card:hover {
-        transform: translateY(-5px) scale(1.01);
-        box-shadow: 0 10px 15px -3px rgba(31, 79, 163, 0.2);
-        border-color: #1F4FA3;
-    }
     .info-card-title {
-        color: #1F4FA3;
-        font-weight: 700;
+        color: #1e3c72;
+        font-weight: 800;
         font-size: 1.1rem;
-        margin-bottom: 12px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    /* 5. WHITELABEL / MODO PROPIETARIO (Ocultar UI Streamlit) */
+    
+    /* Ocultar Botón 'Deploy' (Selectores Agresivos para múltiples versiones) */
+    .stDeployButton, 
+    [data-testid="stDeployButton"],
+    [data-testid="stAppDeployButton"], 
+    button[kind="header"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+    
+    /* Ocultar específicamente el contenedor del botón deploy si está anidado */
+    header > div:first-of-type > div > div > div {
+        display: none !important; 
+    }
+    
+    /* Asegurar que el menú de 3 puntos (Settings) siga visible */
+    /* El menú suele estar en un contenedor hermano al deploy. 
+       Al ocultar el stDeployButton debería bastar. 
+       Si se borró todo el header, restauramos el menú específicamente: */
+    
+    #MainMenu {
+        visibility: visible !important;
+        display: block !important;
+    }
+
+    /* Ocultar Footer 'Made with Streamlit' */
+    footer {
+        visibility: hidden !important;
+        height: 0px !important;
+    }
+    
+    /* Ocultar Icono de Estado (Corredor) */
+    div[data-testid="stStatusWidget"] {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -218,10 +279,17 @@ if uploaded_file is not None:
             st.warning(f"🔔 Documento ya registrado en Supabase (Versión {existing_doc.get('current_version', 1)})")
             st.session_state.is_existing_supabase = True
             st.session_state.db_doc_id = existing_doc['id']
+            st.session_state.db_doc_version = existing_doc.get('current_version', 1)
+            
+            # Recuperar contenido de la última versión para comparación
+            latest = document_manager.get_latest_analysis(existing_doc['id'])
+            if latest:
+                st.session_state.cloud_latest_payload = latest.get('full_analysis_payload')
         else:
             st.info("🆕 Documento Nuevo en Supabase")
             st.session_state.is_existing_supabase = False
             st.session_state.db_doc_id = None
+            st.session_state.cloud_latest_payload = None
 
     # --- Estado de Sesión ---
     if 'analizado' not in st.session_state:
@@ -240,54 +308,70 @@ if uploaded_file is not None:
         st.session_state.db_doc_id = None
     if 'detailed_report' not in st.session_state:
         st.session_state.detailed_report = None
+    if 'cloud_latest_payload' not in st.session_state:
+        st.session_state.cloud_latest_payload = None
 
     with col2:
         st.subheader("Resultados del Análisis")
         
-        # Botón principal de trigger
-        if st.button("🚀 Ejecutar Análisis IA", type="primary"):
-            with st.spinner("Analizando documento..."):
-                # 1. Ejecutar análisis inicial (Páginas e Imágenes)
-                st.session_state.pages_data = pdf_analyzer.analyze_pdf(temp_path)
+        if st.button("INICIAR PROCESAMIENTO PARA EL ANÁLISIS"):
+            # Usar st.status para un log de ejecución profesional y unificado
+            with st.status("Iniciando procesamiento de análisis del documento...", expanded=True) as status:
+                
+                # FASE 1: EXTRACCIÓN
+                st.write("**Fase 1/5:** Digitalizando documento y extrayendo texto (OCR)...")
+                st.session_state.pages_data, st.session_state.pdf_meta = pdf_analyzer.analyze_pdf(temp_path)
+                
                 if st.session_state.pages_data:
-                    for page in st.session_state.pages_data:
+                    # Interpretación de páginas e imágenes
+                    st.write("**Fase 2/5:** Analizando elementos visuales e imágenes...")
+                    progress_bar = st.progress(0)
+                    total_p = len(st.session_state.pages_data)
+                    
+                    for i, page in enumerate(st.session_state.pages_data):
                         page['text_interpret'] = image_analyzer.generate_text_interpretation(page['text_content'])
-                        time.sleep(0.5) # Throttle
+                        time.sleep(0.1) 
                         for img in page.get('images', []):
                             img['description'] = image_analyzer.generate_image_description(img['image_bytes'])
-                            time.sleep(0.5) # Throttle
+                            time.sleep(0.1)
+                        progress_bar.progress((i + 1) / total_p)
+                    progress_bar.empty()
                     
-                    # 2. AUTOMATIZACIÓN (V1.03): Disparar Informe Detallado inmediatamente
+                    # FASE 3: ESTRUCTURACIÓN (Informe Detallado)
+                    st.write("**Fase 3/5:** Generando Informe Estructural del Análisis (Deep Analysis)...")
                     from analyzers import detailed_analyzer
-                    with st.spinner("Generando Informe de Auditoría Estructurado automáticamente..."):
-                        detailed_json_raw = detailed_analyzer.extract_detailed_analysis(st.session_state.pages_data, temp_path)
-                        try:
-                            import json
-                            st.session_state.detailed_report = json.loads(detailed_json_raw)
-                        except Exception as e:
-                            st.error(f"Error en la generación automática del reporte: {e}")
+                    
+                    detailed_json_raw = detailed_analyzer.extract_detailed_analysis(st.session_state.pages_data, temp_path)
+                    try:
+                        import json
+                        st.session_state.detailed_report = json.loads(detailed_json_raw)
+                    except Exception as e:
+                        st.error(f"Error crítico en Fase 3: {e}")
+                        status.update(label="Error de Proceso", state="error")
 
                     if st.session_state.detailed_report:
-                        # 3. ÍNDICE Y CONGRUENCIA: Generar estructura de navegación
+                        # FASE 4: ÍNDICE Y CONGRUENCIA
+                        st.write("**Fase 4/5:** Construyendo Índice Lógico y Validando Congruencia...")
                         from generators import report_generator
-                        with st.spinner("Construyendo Índice Inteligente y validando congruencia..."):
-                            st.session_state.index_card = report_generator.generate_index_card(st.session_state.pages_data)
+                        st.session_state.index_card = report_generator.generate_index_card(st.session_state.pages_data)
 
-                        # 4. PRUEBA DE CONGRUENCIA ESTRUCTURAL (IA): Validación cruzada V1.00
+                        # Validación cruzada
                         from analyzers import congruence_analyzer
-                        with st.spinner("Ejecutando Prueba de Congruencia Estructural automática..."):
-                            st.session_state.congruence_report = congruence_analyzer.analyze_document_congruence(
-                                st.session_state.detailed_report, 
-                                st.session_state.pages_data
-                            )
+                        st.session_state.congruence_report = congruence_analyzer.analyze_document_congruence(
+                            st.session_state.detailed_report, 
+                            st.session_state.pages_data
+                        )
                         
-                        # 5. PRUEBA DE CRUCE OPERATIVO: Diagrama vs Procedimientos V1.00
+                        # FASE 5: CRUCE OPERATIVO
+                        st.write("**Fase 5/5:** Ejecutando Cruce Diagrama vs Procedimientos...")
                         from analyzers import process_cross_analyzer
-                        with st.spinner("Ejecutando Cruce Diagrama vs Procedimientos..."):
-                            st.session_state.process_cross_report = process_cross_analyzer.analyze_process_crossing(
-                                st.session_state.detailed_report,
-                                st.session_state.pages_data
-                            )
+                        st.session_state.process_cross_report = process_cross_analyzer.analyze_process_crossing(
+                            st.session_state.detailed_report,
+                            st.session_state.pages_data
+                        )
+                        
+                        status.update(label="Procesamiento de Análisis Completo Exitosamente", state="complete", expanded=False)
+
                     else:
                         st.warning("⚠️ El Reporte Detallado no se pudo generar (posible error de API Key). Se omiten las pruebas de congruencia y cruce.")
 
@@ -612,24 +696,199 @@ if uploaded_file is not None:
                                 d_clean = clean(detail)
                                 u_clean = clean(user)
 
-                                # Alerta si el usuario no aparece en ninguna de las descripciones del sello
-                                if u_clean not in c_clean and u_clean not in d_clean:
-                                    impersonation_alerts.append({
-                                        "page": page['page_number'],
-                                        "user_sys": annot.get('user'),
-                                        "name_doc": annot.get('content') or annot.get('detail'),
-                                        "type": "Posible Suplantación / Subrogación"
-                                    })
+                                # EVITAR FALSOS POSITIVOS: Si el contenido es solo fecha/números, ignorar alerta de nombre
+                                is_date_only = len(c_clean) < 15 and c_clean.isdigit() # Simple heuristica para fechas limpias 
+                                
+                                if not is_date_only:
+                                    # Alerta si el usuario no aparece en ninguna de las descripciones del sello
+                                    if u_clean not in c_clean and u_clean not in d_clean:
+                                        impersonation_alerts.append({
+                                            "page": f"{page['page_number']} (Metadatos)",
+                                            "user_sys": annot.get('user'),
+                                            "name_doc": annot.get('content') or annot.get('detail'),
+                                            "type": "Posible Suplantación (Metadatos PDF)"
+                                        })
+
+                # 2. VALIDACIÓN VISUAL CRUZADA (Tabla de Firmas vs Texto de Firma)
+                if st.session_state.get('detailed_report'):
+                    st.info("""
+                    ℹ️ **¿Qué busca esta prueba?**
+                    Esta herramienta verifica la **coherencia de identidad** comparando dos fuentes:
+                    1. El **Nombre del Titular** listado en la columna 'Nombre' del documento PDF.
+                    2. La **Identidad Digital** extraída del texto del sello/firma electrónica (ej. 'Firmado por...').
+                    
+                    *Detecta casos donde el titular del puesto no coincide con la persona que realmente ejecutó la firma digital.*
+                    """)
+                    
+                    revisores = st.session_state.detailed_report.get('revisado_aprobado', [])
+                    
+                    # Función de normalización avanzada (Tokens)
+                    import unicodedata
+                    def get_tokens(text):
+                        # 1. Quitar acentos: Sánchez -> Sanchez
+                        text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode("utf-8")
+                        # 2. Minusculas y alfanumérico
+                        text = "".join(c if c.isalnum() else " " for c in text.lower())
+                        # 3. Set de palabras (tokens)
+                        return set(text.split())
+
+                    for rev in revisores:
+                        firma_txt = rev.get('firma', '')
+                        nombre_titular = rev.get('nombre', '')
+                        
+                        if "Firmado Electrónicamente por:" in firma_txt:
+                            # Extraer nombre del sello
+                            nombre_sello = firma_txt.replace("Firmado Electrónicamente por:", "").strip()
+                            
+                            tokens_titular = get_tokens(nombre_titular)
+                            tokens_sello = get_tokens(nombre_sello)
+                            
+                            # Criterio: ¿Las palabras del titular están contenidas en el sello? (o viceversa)
+                            # Ejemplo: {iliana, sanchez} ⊂ {iliana, denise, sanchez, estudillo} -> TRUE
+                            match = tokens_titular.issubset(tokens_sello) or tokens_sello.issubset(tokens_titular)
+                            
+                            # Si no coinciden, es alerta
+                            if not match:
+                                impersonation_alerts.append({
+                                    "page": "Tabla de Firmas",
+                                    "user_sys": nombre_sello, 
+                                    "name_doc": nombre_titular, 
+                                    "type": "Discrepancia Visual de Identidad"
+                                })
+
+                if st.session_state.get('pdf_meta'):
+                    meta = st.session_state.pdf_meta
+                    with st.expander("📂 Ficha Técnica del Documento (Metadatos & Seguridad)", expanded=False):
+                        import datetime
+                        
+                        # --- HELPERS ---
+                        def parse_pdf_date(date_str):
+                            if not date_str: return "Desconocido"
+                            # Clean "D:" prefix and timezone like "-07'00'"
+                            clean = date_str.replace("D:", "").split('+')[0].split('-')[0].replace("'","")
+                            try:
+                                # Format: YYYYMMDDHHMMSS
+                                dt = datetime.datetime.strptime(clean[:14], "%Y%m%d%H%M%S")
+                                return dt.strftime("%d/%b/%Y %H:%M Hrs")
+                            except:
+                                return date_str
+
+                        # --- EXTRACTION ---
+                        creator_tool = meta.get('Creator', 'Desconocido')
+                        producer = meta.get('Producer', 'Desconocido')
+                        author = meta.get('Author', 'No especificado')
+                        creation_date = parse_pdf_date(meta.get('CreationDate'))
+                        mod_date = parse_pdf_date(meta.get('ModDate'))
+                        is_encrypted = meta.get('is_encrypted', False)
+
+                        # --- ANALYSIS ---
+                        origin_type = "Software PDF Genérico"
+                        if "Word" in creator_tool or "Excel" in creator_tool: origin_type = "Microsoft Office (Nativo)"
+                        elif "Scanner" in creator_tool or "image" in producer.lower(): origin_type = "Escaneado / Imagen"
+                        elif "Canva" in creator_tool: origin_type = "Diseño (Canva)"
+                        
+                        # --- DISPLAY (Custom CSS Cards) ---
+                        st.markdown("""
+                        <style>
+                        .meta-card {
+                            background-color: rgba(128, 128, 128, 0.05);
+                            border-radius: 8px;
+                            padding: 15px;
+                            border: 1px solid rgba(128, 128, 128, 0.15);
+                            height: 100%;
+                        }
+                        .meta-label {
+                            font-size: 0.8em;
+                            opacity: 0.7;
+                            text-transform: uppercase;
+                            margin-bottom: 4px;
+                            font-weight: 600;
+                        }
+                        .meta-main {
+                            font-size: 1.1em;
+                            font-weight: 500;
+                            margin-bottom: 8px;
+                        }
+                        .meta-sub {
+                            font-size: 0.75em;
+                            opacity: 0.6;
+                            line-height: 1.2;
+                            overflow-wrap: break-word;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
+
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.markdown(f"""
+                            <div class="meta-card">
+                                <div class="meta-label">🖥️ Origen Digital</div>
+                                <div class="meta-main">{origin_type}</div>
+                                <div class="meta-sub">{creator_tool}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        with col2:
+                            st.markdown(f"""
+                            <div class="meta-card">
+                                <div class="meta-label">👤 Autor Registrado</div>
+                                <div class="meta-main">{author}</div>
+                                <div class="meta-sub">{producer}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        with col3:
+                            sec_icon = "🔒" if is_encrypted else "🔓"
+                            sec_txt = "Encriptado" if is_encrypted else "Abierto / Estándar"
+                            st.markdown(f"""
+                            <div class="meta-card">
+                                <div class="meta-label">🛡️ Nivel de Seguridad</div>
+                                <div class="meta-main">{sec_icon} {sec_txt}</div>
+                                <div class="meta-sub">Permisos: Lectura/Escritura/Impresión (Estándar)</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        st.write("") # Spacer
+
+                        # Timeline Section
+                        st.markdown("##### ⏳ Línea de Tiempo del Documento")
+                        tl1, tl2 = st.columns(2)
+                        with tl1:
+                             st.info(f"**📅 Fecha de Creación:**\n\n{creation_date}")
+                        with tl2:
+                             mod_color = "blue" if creation_date == mod_date else "orange"
+                             # Usando sintaxis de color de Streamlit en markdown
+                             st.markdown(f"""
+                             <div style="padding:10px; border-radius:5px; background-color: rgba(255, 165, 0, 0.1) if '{mod_color}'=='orange' else rgba(0,0,255,0.05); border-left: 5px solid {mod_color};">
+                                <strong>📝 Última Modificación:</strong><br>{mod_date}
+                             </div>
+                             """, unsafe_allow_html=True)
+
+                        if creation_date != mod_date and creation_date != "Desconocido" and mod_date != "Desconocido":
+                            st.caption("ℹ️ *Nota: La diferencia entre fechas indica que el documento fue editado y guardado nuevamente después de su generación inicial.*")
 
                 if impersonation_alerts:
                     for alert in impersonation_alerts:
-                        st.error(f"🚨 **ALERTA: Discrepancia de Identidad Digital (Pág {alert['page']})**")
+                        # Diferenciar Severidad: Metadatos (Warning) vs Visual (Error Crítico)
+                        is_metadata_warning = "Metadatos" in alert['type']
+                        
+                        if is_metadata_warning:
+                            st.warning(f"⚠️ **ADVERTENCIA DE CONTEXTO: {alert['type']}**")
+                            explanation = "El usuario técnico que generó/consolidó el PDF no coincide con la firma. Esto es común si un administrador generó el documento final."
+                        else:
+                            st.error(f"🚨 **ALERTA CRÍTICA: {alert['type']}**")
+                            explanation = "El nombre visual en la firma NO coincide con el nombre del titular esperado."
+
                         col_a1, col_a2 = st.columns(2)
                         with col_a1:
-                            st.warning(f"**Firmante en PDF:**\n{alert['name_doc']}")
+                            st.caption("Firmante en PDF:")
+                            st.write(f"**{alert['name_doc']}**")
                         with col_a2:
-                            st.error(f"**Usuario del Sistema:**\n{alert['user_sys']}")
-                        st.caption("🔍 El usuario que ejecutó la firma digital no parece coincidir con el nombre del titular en el sello.")
+                            st.caption("Usuario del Sistema / Sello:")
+                            st.write(f"**{alert['user_sys']}**")
+                        
+                        st.caption(f"🔍 {explanation}")
                         st.divider()
                 else:
                     if st.session_state.get('pages_data'):
@@ -743,12 +1002,62 @@ if uploaded_file is not None:
                             if res is True:
                                 st.success("✅ Documento guardado exitosamente.")
                                 st.session_state.is_existing_supabase = True
+                                st.session_state.db_doc_version = 1
                                 st.rerun()
                             else:
                                 st.error(f"❌ {res}")
                     else:
                         st.subheader("🔄 Documento Existente")
                         st.write(f"ID del Documento: `{st.session_state.db_doc_id}`")
-                        # (Omitiendo lógica compleja de actualización para esta versión estable)
-                        st.info("Versionado listo para activar.")
+                        
+                        curr_v = st.session_state.get('db_doc_version', 1)
+                        next_v = curr_v + 1
+                        
+                        st.markdown(f"Edición Actual en Nube: **V{curr_v}**")
+
+                        # --- DETECCIÓN DE CAMBIOS (HASHING) ---
+                        import hashlib
+                        import json
+                        
+                        has_changes = True # Por defecto asumimos cambios por seguridad
+                        
+                        if st.session_state.get('cloud_latest_payload'):
+                            try:
+                                def get_hash(obj):
+                                    return hashlib.sha256(json.dumps(obj, sort_keys=True, default=str).encode()).hexdigest()
+                                
+                                local_hash = get_hash(st.session_state.detailed_report)
+                                cloud_hash = get_hash(st.session_state.cloud_latest_payload)
+                                
+                                if local_hash == cloud_hash:
+                                    has_changes = False
+                            except Exception as e:
+                                print(f"Error hashing: {e}")
+                        
+                        allow_save = False
+                        
+                        if not has_changes:
+                            st.success("✅ **Sincronizado:** El análisis actual es idéntico a la versión en la nube.")
+                            if st.checkbox("Forzar creación de nueva versión de todos modos"):
+                                allow_save = True
+                        else:
+                            st.warning("⚠️ **Cambios Detectados:** El análisis local difiere de la última versión guardada.")
+                            allow_save = True
+                        
+                        if allow_save:
+                            if st.button(f"✨ Guardar Nueva Versión (V{next_v})", type="primary"):
+                                res = document_manager.update_document_version(
+                                    st.session_state.db_doc_id,
+                                    next_v,
+                                    st.session_state.detailed_report
+                                )
+                                if res is True:
+                                    st.success(f"✅ Versión {next_v} actualizada correctamente.")
+                                    st.session_state.db_doc_version = next_v
+                                    # Actualizar referencia cloud para futuros checks sin recarga
+                                    st.session_state.cloud_latest_payload = st.session_state.detailed_report
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ {res}")
 

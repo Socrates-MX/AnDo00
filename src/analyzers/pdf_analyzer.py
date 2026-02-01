@@ -69,4 +69,12 @@ def analyze_pdf(file_path):
         print(f"Error reading PDF: {e}")
         return None
         
-    return results
+    # Extraer metadatos extendidos y estado de encriptación
+    meta_dict = {}
+    if reader.metadata:
+        meta_dict = {k.replace("/", ""): v for k, v in reader.metadata.items()}
+    
+    # Agregar estado de seguridad
+    meta_dict["is_encrypted"] = reader.is_encrypted
+    
+    return results, meta_dict

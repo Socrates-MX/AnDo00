@@ -46,7 +46,11 @@ def extract_detailed_analysis(pages_data, file_path=None):
     2. Lo mismo aplica para Firmas, Sellos y Tablas. Confía 100% en las interpretaciones previas proporcionadas.
 
     INSTRUCCIONES DE ESTRUCTURA:
-    - REVISADO Y APROBADO: Extrae nombres y puestos de forma literal. Clasifica la firma como 'Firma Electrónica' o 'Manual' basándote en el OCR y evidencias visuales previas.
+    - REVISADO Y APROBADO: Busca activamente tablas con encabezados como "Nombe", "Puesto", "Firma", "Fecha" o "REVISADO Y APROBADO ELECTRÓNICAMENTE".
+    - IMPORTANTE CLASIFICACIÓN DE FIRMA: Mira el contenido visual de la celda 'Firma':
+      - Si es TEXTO legible (ej. nombre repetido, hash, texto de certificado): Escribe "Firmado Electrónicamente por: " seguido del texto extraído.
+      - Si es un Garabato/Rúbrica/Imagen hecha a mano: Escribe "Firmado Manualmente: firma autógrafa (imagen)".
+    - IMPORTANTE: En la columna 'Fecha', captura el timestamp completo (fecha y hora si existe).
     - POLÍTICAS Y PROCEDIMIENTOS: Transcripción íntegra y resumen ejecutivo.
     - Si un dato no existe en la guía, responde 'No identificado en el documento'.
 
@@ -87,11 +91,25 @@ def extract_detailed_analysis(pages_data, file_path=None):
     }}
     """
 
+    prompt_parts = [main_prompt]
+    
+    pdf_file_ref = None
+    if file_path:
+        try:
+            print(f"Subiendo archivo para contexto visual: {file_path}")
+            pdf_file_ref = genai.upload_file(file_path, mime_type="application/pdf")
+            prompt_parts.append(pdf_file_ref)
+        except Exception as e:
+            print(f"Error subiendo archivo multimodal: {e} - Se usará solo texto.")
+
     try:
-        # Nota: Ya no adjuntamos el archivo visual (multimodal) por defecto para ahorrar tokens y forzar el uso de la guía.
-        # Solo se enviaría si fuera estrictamente necesario, pero la guía ya es rica en contenido.
-        response = call_with_retry(model.generate_content, main_prompt)
+        # Nota: Ahora SÍ adjuntamos el archivo visual (multimodal) para leer firmas y tablas complejas.
+        response = call_with_retry(model.generate_content, prompt_parts)
         clean_response = response.text.replace("```json", "").replace("```", "").strip()
+        
+        # Limpieza de archivo temporal remoto (opcional, buena práctica)
+        # if pdf_file_ref: pdf_file_ref.delete() 
+        
         return clean_response
     except Exception as e:
         return f"Error en síntesis detallada: {str(e)}"
