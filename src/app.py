@@ -104,6 +104,42 @@ st.markdown("""
         font-size: 15px !important;
     }
 
+    /* 2e. File Uploader Button (Match Imagen 2) */
+    [data-testid="stFileUploader"] button {
+        background: #1e3c72 !important; 
+        background: linear-gradient(180deg, #244280 0%, #1e3c72 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 400 !important;
+        text-transform: none !important;
+        transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    }
+    
+    /* Translation Hack for "Drag and drop file here" ONLY */
+    [data-testid="stFileUploaderDropzoneInstructions"] > div:first-child {
+        visibility: hidden;
+        position: relative;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] > div:first-child::after {
+        content: "Arrastra y suelta el archivo aquí";
+        visibility: visible;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        text-align: center;
+    }
+    [data-testid="stFileUploader"] button:hover {
+        background: #2a5298 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(30, 60, 114, 0.2) !important;
+    }
+    [data-testid="stFileUploader"] button:active {
+        background: #162c55 !important;
+        transform: translateY(1px);
+    }
+
     /* 3. Pestañas (Tabs) */
     .stTabs [data-baseweb="tab-highlight"] {
         background-color: #1e3c72 !important;
@@ -174,8 +210,98 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Layout head
-st.title("Analizador de Documentos (AnDo)")
-st.markdown("**GetAuditUP Compliance | SaaS Edition**")
+# Layout head with better alignment
+col_header_left, col_header_right = st.columns([5, 3]) # Más espacio a la derecha para evitar amontonamiento
+
+with col_header_left:
+    st.markdown("""
+        <h1 style='margin-bottom: 0px; padding-bottom: 0px;'>Analizador de Documentos (AnDo)</h1>
+        <p style='color: #64748B; font-weight: 500; font-size: 14px; margin-top: 5px;'>GetAuditUP Hub | SaaS Edition</p>
+    """, unsafe_allow_html=True)
+
+with col_header_right:
+    # CSS Específico para esta sección de controles
+    st.markdown("""
+    <style>
+    /* Estilo botón Waffle (Popover) */
+    div[data-testid="stPopover"] > button {
+        border-radius: 50% !important;
+        width: 42px !important;
+        height: 42px !important;
+        border: 1px solid #E2E8F0 !important;
+        background-color: white !important;
+        color: #334155 !important;
+        font-size: 22px !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        margin-top: 15px !important; /* Ajuste visual para alinear con el título */
+        float: right;
+    }
+    div[data-testid="stPopover"] > button:hover {
+        background-color: #F8FAFC !important;
+        border-color: #94A3B8 !important;
+        color: #0F172A !important;
+    }
+    
+    /* Token Pill Container */
+    .token-container {
+        display: flex; 
+        justify-content: flex-end; 
+        align-items: center; 
+        height: 42px; /* Match button height */
+        margin-top: 15px; /* Match button margin */
+        padding-right: 15px;
+    }
+    
+    .token-pill {
+        background-color: #FFFBEB; 
+        color: #B45309; 
+        padding: 0 16px; 
+        border-radius: 999px; 
+        font-weight: 700; 
+        border: 1px solid #FCD34D; 
+        font-size: 13px; 
+        display: flex; 
+        align-items: center; 
+        height: 36px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Usar columnas internas para tokens y waffle
+    c_tokens, c_waffle = st.columns([3, 1])
+    
+    with c_tokens:
+        if "user_tokens" not in st.session_state:
+            st.session_state.user_tokens = 50
+        st.markdown(f"""
+        <div class="token-container">
+            <div class="token-pill">
+                <span style="background-color: #FDE68A; color: #92400E; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; margin-right: 8px; font-size: 11px;">$</span>
+                {st.session_state.user_tokens} Tokens
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with c_waffle:
+        # Menú tipo 'Waffle' del ecosistema
+        with st.popover("▦", help="GetAuditUP Suite"):
+            st.caption("GETAUDITUP SUITE")
+            st.markdown("---")
+            
+            # Suite Navigation Grid
+            g1_c1, g1_c2 = st.columns(2)
+            with g1_c1:
+                st.button("🏢 Hub", key="nav_hub", use_container_width=True, help="Panel Principal")
+                st.button("✅ Compl.", key="nav_comp", use_container_width=True, help="Gestión Normativa")
+            with g1_c2:
+                st.button("👥 Legado", key="nav_legado", use_container_width=True, help="Gestión Societaria")
+                st.button("⚡ Riesgos", key="nav_risk", use_container_width=True, help="Matriz de Riesgos")
 
 # --- CONTROL DE ACCESO SAAS (Hub Integration) ---
 if "organization_id" not in st.session_state:
@@ -314,7 +440,7 @@ if uploaded_file is not None:
     with col2:
         st.subheader("Resultados del Análisis")
         
-        if st.button("INICIAR PROCESAMIENTO PARA EL ANÁLISIS"):
+        if st.button("INICIAR PROCESAMIENTO PARA EL ANÁLISIS", type="primary"):
             # Usar st.status para un log de ejecución profesional y unificado
             with st.status("Iniciando procesamiento de análisis del documento...", expanded=True) as status:
                 
@@ -370,7 +496,7 @@ if uploaded_file is not None:
                             st.session_state.pages_data
                         )
                         
-                        status.update(label="Procesamiento de Análisis Completo Exitosamente", state="complete", expanded=False)
+                        status.update(label="✅ Procesamiento de Análisis Completo Exitosamente", state="complete", expanded=False)
 
                     else:
                         st.warning("⚠️ El Reporte Detallado no se pudo generar (posible error de API Key). Se omiten las pruebas de congruencia y cruce.")
