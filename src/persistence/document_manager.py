@@ -1,6 +1,7 @@
 import hashlib
 from utils.supabase_client import get_supabase_client
 
+
 def calculate_pdf_hash(file_bytes):
     """
     Calculates the SHA-256 hash of the file bytes to identify uniqueness.
@@ -16,7 +17,7 @@ def check_document_existence(file_hash):
     if not supabase:
         return None
         
-    response = supabase.table("documents").select("*").eq("hash_documento", file_hash).execute()
+    response = supabase.table("ando_documents").select("*").eq("file_hash", file_hash).execute()
     if response.data:
         return response.data[0]
     return None
@@ -30,20 +31,21 @@ def save_new_document(doc_data, analysis_payload):
         return False
         
     try:
-        # 1. Insert into documents
-        doc_res = supabase.table("documents").insert(doc_data).execute()
+        # 1. Insert into ando_documents
+        # doc_data must contain 'organization_id' provided by the frontend/session
+        doc_res = supabase.table("ando_documents").insert(doc_data).execute()
         if not doc_res.data:
             return False
             
         doc_id = doc_res.data[0]['id']
         
-        # 2. Insert into analysis_detallado
+        # 2. Insert into ando_analysis_versions
         analysis_data = {
             "document_id": doc_id,
-            "payload_completo": analysis_payload,
-            "version": 1
+            "full_analysis_payload": analysis_payload,
+            "version_number": 1
         }
-        supabase.table("analysis_detallado").insert(analysis_data).execute()
+        supabase.table("ando_analysis_versions").insert(analysis_data).execute()
         return True
     except Exception as e:
         print(f"Error saving to Supabase: {e}")
@@ -57,10 +59,10 @@ def get_latest_analysis(doc_id):
     if not supabase:
         return None
         
-    response = supabase.table("analysis_detallado") \
+    response = supabase.table("ando_analysis_versions") \
         .select("*") \
         .eq("document_id", doc_id) \
-        .order("version", desc=True) \
+        .order("version_number", desc=True) \
         .limit(1) \
         .execute()
         
@@ -70,15 +72,15 @@ def update_document_version(doc_id, new_version, analysis_payload):
     supabase = get_supabase_client()
     if not supabase: return False
     try:
-        supabase.table('documents').update({'version_actual': new_version}).eq('id', doc_id).execute()
-        analysis_data = {'document_id': doc_id, 'payload_completo': analysis_payload, 'version': new_version}
-        supabase.table('analysis_detallado').insert(analysis_data).execute()
+        supabase.table('ando_documents').update({'current_version': new_version}).eq('id', doc_id).execute()
+        analysis_data = {'document_id': doc_id, 'full_analysis_payload': analysis_payload, 'version_number': new_version}
+        supabase.table('ando_analysis_versions').insert(analysis_data).execute()
         return True
     except Exception: return False
 
 def register_revision(doc_id, v_old, v_new, diff_payload):
     supabase = get_supabase_client()
     if not supabase: return False
-    revision_data = {'document_id': doc_id, 'version_anterior': v_old, 'version_nueva': v_new, 'cambios_detectados': diff_payload, 'aceptado_por_usuario': True}
-    supabase.table('revisiones_documento').insert(revision_data).execute()
+    revision_data = {'document_id': doc_id, 'version_from': v_old, 'version_to': v_new, 'diff_payload': diff_payload}
+    supabase.table('ando_revisions').insert(revision_data).execute()
     return True

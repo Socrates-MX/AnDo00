@@ -42,11 +42,14 @@ def generate_image_description(image_bytes):
         }
         
         response = call_with_retry(model.generate_content, [
-            "Analiza esta imagen extraída de un documento PDF para una auditoría.\n"
-            "REGLAS:\n"
-            "1. Si es LOGOTIPO o MARCA DE AGUA decorativa, responde: [SKIP]\n"
-            "2. Si es sustantiva (gráficos, tablas, firmas): Extrae texto (OCR) e interpreta "
-            "de manera CONCRETA el significado para el negocio/auditoría.",
+            "Analiza esta imagen extraída de un PDF para una auditoría de procesos.\n"
+            "INSTRUCCIONES:\n"
+            "1. Si la imagen es un LOGOTIPO, MARCA DE AGUA decorativa o elemento irrelevante, responde EXACTAMENTE: [SKIP]\n"
+            "2. Si la imagen es SUSTANTIVA (DIAGRAMA DE FLUJO, organigrama, tabla de datos, firma o gráfico):\n"
+            "   - Identifica QUÉ ES (ej. 'Diagrama de Flujo del Proceso de Compras').\n"
+            "   - Realiza un OCR de los textos dentro de la imagen.\n"
+            "   - Explica de forma lógica y técnica el contenido (ej. pasos, responsables, decisiones).\n"
+            "   - Describe el hallazgo de manera profesional para un auditor.",
             image_part
         ])
         return response.text.strip()

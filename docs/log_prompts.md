@@ -112,7 +112,6 @@
 - Se añadió un mecanismo de fallback para robustez.
 - El sistema ahora procesa imágenes reales exitosamente.
 - El sistema ahora procesa imágenes reales exitosamente.
-
 ## Sesión 17: Filtrado de Logos/Marcas de Agua y Análisis Ejecutivo
 **Prompt/Tarea:** Distinguir entre imágenes sustantivas y decorativas (Logos/Watermarks). Enfocar el análisis en interpretación concreta y OCR de imágenes relevantes.
 **Resultado:**
@@ -126,6 +125,7 @@
 - El sistema ahora procesa imágenes reales exitosamente.
 
 ## Sesión 18: Doble Interpretación IA (Texto e Imágenes)
+
 **Prompt/Tarea:** Distinguir entre imágenes (Logos) y Marcas de Agua (omitir). Implementar interpretación doble obligatoria: una para el texto y otra para imágenes sustantivas.
 **Resultado:**
 - Se añadió `generate_text_interpretation` en el motor de IA.
@@ -272,3 +272,48 @@
 - Se implementó un motor de diferencias (`diff_engine.py`) para comparar versiones JSON.
 - Se añadió la pestaña **☁️ Persistencia Supabase** en la UI con flujo de: identificación de nuevo vs existente, visualización de Tabla de Diferencias y Aceptación Explícita de cambios para versionar.
 - Se actualizó `requirements.txt` con la librería `supabase`.
+
+## Sesión 34: Despliegue Exitoso en Cloud Run
+**Prompt/Tarea:** Continuar con la verificación de Supabase y el despliegue en Cloud Run.
+**Resultado:**
+- Se verificó la conexión a Supabase y la existencia de la tabla `documents` (1 registro detectado).
+- Se habilitó la API `cloudresourcemanager.googleapis.com` en GCP.
+- Se ejecutó exitosamente el script `deploy.ps1`.
+- La aplicación está en producción: [https://ando-compliance-app-385970621522.us-central1.run.app](https://ando-compliance-app-385970621522.us-central1.run.app).
+- Se inició la estructura de `/docs/bitacoras/` para cumplimiento del System Prompt V1.00.
+
+## Sesión 35: Corrección de Inconsistencias en Diagramas de Flujo
+**Prompt/Tarea:** Corregir "No identificado" en Diagramas de Flujo y mejorar hallazgos de imágenes.
+**Resultado:**
+- Se mejoró el prompt en `image_analyzer.py` para identificar y describir específicamente diagramas de flujo y flujogramas.
+- Se actualizó `detailed_analyzer.py` para:
+    - Integrar las descripciones detalladas de imágenes en el contexto enviado a Gemini.
+    - Incluir una instrucción multimodal explícita para buscar visualmente diagramas de flujo.
+- Se optimizó la interfaz en `app.py`:
+    - Uso de `use_container_width=True` para visualizar diagramas grandes.
+    - Etiquetas de interpretación más claras ("Interpretación Técnica de Imagen").
+    - Manejo de estados vacíos para evitar secciones sin información.
+## Sesión 36: Implementación de Exportación a PDF
+**Prompt/Tarea:** Agregar botones de descarga PDF por pestaña y un reporte integral, permitiendo personalizar el nombre del archivo.
+**Resultado:**
+- Se integró la librería `fpdf2` en `requirements.txt`.
+- Se creó `src/generators/pdf_report_generator.py` con lógica para generar PDFs de pestañas individuales y reportes completos.
+- Se actualizaron las 4 pestañas de la UI de Streamlit para incluir botones de descarga con nombre de archivo configurable.
+## Sesión 37: Alineación con Identidad Corporativa (GetAuditUP)
+**Prompt/Tarea:** Implementar los lineamientos de color corporativo V01.01 definidos en el manual de identidad visual de GetAuditUP.
+**Resultado:**
+- Se inyectó CSS personalizado en `app.py` para establecer el Azul Corporativo (`#1F4FA3`) y Verde Lima (`#C6E600`) como base de la UI.
+- Se configuraron botones primarios (CTAs) con fondo Verde Lima y texto Azul Noche.
+- Se actualizaron los estilos de alertas semánticas para Riesgos (Rojo Suave), Éxito (Verde) y Advertencias.
+- Se estandarizaron títulos, métricas y pestañas según la jerarquía visual aprobada.
+- Se actualizó el pie de página a la versión FMConsulting V02.01.
+- Se integró el logo oficial de GetAuditUP en la barra lateral de la UI y en el encabezado de los reportes PDF.
+
+## Sesión 38: Optimización de Favicon y Estándares Web (V02.01)
+**Prompt/Tarea:** Corregir el tamaño del favicon y asegurar cumplimiento con estándares multiresolución.
+**Resultado:**
+- Se generaron assets específicos: 16x16, 32x32 y Apple Touch Icon (180x180).
+- Se aplicó recorte extremo y padding del 10% para maximizar la visibilidad en pestañas.
+- Se implementó `favicon_injector.py` para inyectar explícitamente las declaraciones `<link>` en el encabezado de la aplicación.
+- Se profesionalizó la presencia visual de la pestaña del navegador.
+
