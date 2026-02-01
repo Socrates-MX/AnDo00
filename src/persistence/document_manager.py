@@ -25,17 +25,21 @@ def check_document_existence(file_hash):
 def save_new_document(doc_data, analysis_payload):
     """
     Persists a new document and its initial detailed analysis in Supabase.
+    Returns True on success, or a string error message on failure.
     """
     supabase = get_supabase_client()
     if not supabase:
-        return False
+        return "Error: Cliente Supabase no inicializado (Revise credenciales .env)"
         
     try:
         # 1. Insert into ando_documents
         # doc_data must contain 'organization_id' provided by the frontend/session
         doc_res = supabase.table("ando_documents").insert(doc_data).execute()
+        
+        # Check for RLS issues or empty return
         if not doc_res.data:
-            return False
+            err_detail = getattr(doc_res, 'error', 'Ninguno')
+            return f"Error de Persistencia: Supabase no devolvió datos. Causa probable: Bloqueo RLS (Row Level Security) o Organization ID inválido. Detalle Técnico: {err_detail}"
             
         doc_id = doc_res.data[0]['id']
         
@@ -45,11 +49,14 @@ def save_new_document(doc_data, analysis_payload):
             "full_analysis_payload": analysis_payload,
             "version_number": 1
         }
-        supabase.table("ando_analysis_versions").insert(analysis_data).execute()
+        ver_res = supabase.table("ando_analysis_versions").insert(analysis_data).execute()
+        
+        if not ver_res.data:
+            return f"Error al guardar versión: {getattr(ver_res, 'error', 'N/A')}"
+
         return True
     except Exception as e:
-        print(f"Error saving to Supabase: {e}")
-        return False
+        return f"Excepción Crítica: {str(e)}"
 
 def get_latest_analysis(doc_id):
     """
