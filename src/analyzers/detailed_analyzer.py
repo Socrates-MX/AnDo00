@@ -3,7 +3,7 @@ import google.generativeai as genai
 from utils.ai_retry import call_with_retry
 import os
 
-def extract_detailed_analysis(pages_data, file_path=None):
+def extract_detailed_analysis(pages_data):
     """
     Generates the Detailed Analysis report.
     Uses MULTIMODAL PDF analysis (if file_path provided) to ensure 
@@ -79,6 +79,7 @@ def extract_detailed_analysis(pages_data, file_path=None):
       "objetivo_completo": "...",
       "alcance_completo": "...",
       "interpretacion_diagrama_flujo": "SÍNTESIS MAESTRA de los diagramas descritos en la guía previa.",
+      "mermaid_graph": "graph TD;\nStart((Inicio)) --> B[Paso 1: ...];\n... (Sintaxis completa y válida de MermaidJS que represente el flujo operativo)",
       "politicas": {{
         "texto_completo": "...",
         "identificacion_participantes_ia": ["..."],
@@ -93,14 +94,14 @@ def extract_detailed_analysis(pages_data, file_path=None):
 
     prompt_parts = [main_prompt]
     
-    pdf_file_ref = None
-    if file_path:
-        try:
-            print(f"Subiendo archivo para contexto visual: {file_path}")
-            pdf_file_ref = genai.upload_file(file_path, mime_type="application/pdf")
-            prompt_parts.append(pdf_file_ref)
-        except Exception as e:
-            print(f"Error subiendo archivo multimodal: {e} - Se usará solo texto.")
+    prompt_parts = [main_prompt]
+    
+    # EXCLUSIVE RAW SOURCE: 
+    # We purposefully DO NOT upload the PDF file here.
+    # The 'full_document_context' built above contains the consolidated truth 
+    # (Text + AI Interpreted Images). Accessing the file directly would violate 
+    # the orchestration principle of "Single Source of Truth".
+
 
     try:
         # Nota: Ahora SÍ adjuntamos el archivo visual (multimodal) para leer firmas y tablas complejas.

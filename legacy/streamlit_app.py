@@ -399,13 +399,16 @@ if uploaded_file is not None:
         
         # 2. Registro SUPABASE (V1.00 - SAAS COMPLIANT)
         file_hash = document_manager.calculate_pdf_hash(uploaded_file.getvalue())
-        existing_doc = document_manager.check_document_existence(file_hash)
+        existing_doc = document_manager.check_document_existence(
+            file_hash, 
+            org_id=st.session_state.organization_id
+        )
         
         if existing_doc:
-            st.warning(f"🔔 Documento ya registrado en Supabase (Versión {existing_doc.get('current_version', 1)})")
+            st.warning(f"🔔 Documento ya registrado en Supabase (Versión {existing_doc.get('version_actual', 1)})")
             st.session_state.is_existing_supabase = True
             st.session_state.db_doc_id = existing_doc['id']
-            st.session_state.db_doc_version = existing_doc.get('current_version', 1)
+            st.session_state.db_doc_version = existing_doc.get('version_actual', 1)
             
             # Recuperar contenido de la última versión para comparación
             latest = document_manager.get_latest_analysis(existing_doc['id'])
@@ -1115,11 +1118,11 @@ if uploaded_file is not None:
 
                         if st.button("💾 Guardar Versión Inicial (V1) (SaaS)"):
                             doc_data = {
-                                "file_name": uploaded_file.name,
+                                "filename": uploaded_file.name,
                                 "file_hash": file_hash,
                                 "page_count": total_pages,
                                 "status": "active",
-                                "current_version": 1,
+                                "version_actual": 1,
                                 "organization_id": target_org_id 
                             }
                             

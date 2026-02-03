@@ -6,3 +6,4 @@ Pillow
 supabase
 fpdf2==2.8.2
 pandas
+fpdf2

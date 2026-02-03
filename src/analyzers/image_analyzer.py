@@ -42,14 +42,22 @@ def generate_image_description(image_bytes):
         }
         
         response = call_with_retry(model.generate_content, [
-            "Analiza esta imagen extraída de un PDF para una auditoría de procesos.\n"
-            "INSTRUCCIONES:\n"
-            "1. Si la imagen es un LOGOTIPO, MARCA DE AGUA decorativa o elemento irrelevante, responde EXACTAMENTE: [SKIP]\n"
-            "2. Si la imagen es SUSTANTIVA (DIAGRAMA DE FLUJO, organigrama, tabla de datos, firma o gráfico):\n"
-            "   - Identifica QUÉ ES (ej. 'Diagrama de Flujo del Proceso de Compras').\n"
-            "   - Realiza un OCR de los textos dentro de la imagen.\n"
-            "   - Explica de forma lógica y técnica el contenido (ej. pasos, responsables, decisiones).\n"
-            "   - Describe el hallazgo de manera profesional para un auditor.",
+            "Analiza esta imagen con rigor forense para auditoría.\n"
+            "ESCRUTINIO DE TIPO:\n"
+            "1. Si es LOGOTIPO, MARCA DE AGUA o elemento decorativo: Responde EXACTAMENTE: [SKIP]\n"
+            "2. Si es un DIAGRAMA DE FLUJO, PROCESO o TABLA DE DECISIÓN (CRÍTICO):\n"
+            "   Debes transcribir el flujo COMPLETO a texto lógico estructurado.\n"
+            "   FORMATO DE SALIDA:\n"
+            "   **TIPO:** [Diagrama de Flujo / Tabla / Gráfico]\n"
+            "   **PROCESO:** [Nombre inferido del proceso]\n"
+            "   **ROLES VISIBLES:** [Lista de carriles/actores si existen]\n"
+            "   **FLUJO LÓGICO PASO A PASO:**\n"
+            "   1. [Inicio] Descripción...\n"
+            "   2. [Actividad] ...\n"
+            "   3. [Decisión] ¿Condición? (Si -> Paso X, No -> Paso Y)\n"
+            "   ...\n"
+            "   [Fin] Conclusión.\n"
+            "   Asegura que NINGÚN paso visible sea omitido.",
             image_part
         ])
         return response.text.strip()

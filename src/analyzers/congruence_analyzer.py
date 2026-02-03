@@ -59,13 +59,7 @@ def analyze_document_congruence(detailed_report, pages_data):
         {{ "relacion": "Políticas vs Procedimientos", "resultado": "✅/⚠️/❌", "evidencia": "..." }},
         {{ "relacion": "Diagrama vs Participantes", "resultado": "✅/⚠️/❌", "evidencia": "..." }},
         {{ "relacion": "Participantes vs Firmantes", "resultado": "✅/⚠️/❌", "evidencia": "..." }}
-      ],
-      "conclusion": {{
-        "estado": "Congruente / Parcialmente congruente / No congruente",
-        "hallazgos": ["hallazgo 1", "hallazgo 2"],
-        "riesgos": ["riesgo 1", "riesgo 2"],
-        "impacto": "Impacto potencial en auditoría."
-      }}
+      ]
     }}
     """
 
