@@ -3,5 +3,8 @@ google-generativeai
 python-dotenv
 streamlit
 Pillow
-supabase
 fpdf2==2.8.2
+fastapi
+uvicorn
+python-multipart
+requests

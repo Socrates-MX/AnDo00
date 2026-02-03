@@ -36,6 +36,10 @@ class RealSupabaseTable:
         self._json_data = data
         return self
 
+    def delete(self):
+        self._method = "DELETE"
+        return self
+
     def eq(self, column, value):
         self.params[column] = f"eq.{value}"
         return self
@@ -63,6 +67,8 @@ class RealSupabaseTable:
         elif self._method == "PATCH":
             headers["Prefer"] = "return=representation"
             res = requests.patch(url, headers=headers, params=self.params, json=self._json_data)
+        elif self._method == "DELETE":
+            res = requests.delete(url, headers=headers, params=self.params)
         else: # GET
             if self._order: self.params["order"] = self._order
             if self._limit: self.params["limit"] = self._limit
