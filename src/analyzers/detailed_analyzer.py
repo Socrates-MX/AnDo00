@@ -108,11 +108,18 @@ def extract_detailed_analysis(pages_data):
         response = call_with_retry(model.generate_content, prompt_parts)
         clean_response = response.text.replace("```json", "").replace("```", "").strip()
         
-        # Limpieza de archivo temporal remoto (opcional, buena práctica)
-        # if pdf_file_ref: pdf_file_ref.delete() 
+        # Capture usage metadata
+        usage = getattr(response, 'usage_metadata', None)
+        usage_data = {}
+        if usage:
+            usage_data = {
+                "prompt_token_count": usage.prompt_token_count,
+                "candidates_token_count": usage.candidates_token_count,
+                "total_token_count": usage.total_token_count
+            }
         
-        return clean_response
+        return clean_response, usage_data
     except Exception as e:
-        return f"Error en síntesis detallada: {str(e)}"
+        return f"Error en síntesis detallada: {str(e)}", {}
 
 

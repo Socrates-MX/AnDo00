@@ -149,6 +149,17 @@ async def run_analysis_task(task_id: str, file_path: str):
             
         pages_data, pdf_meta = extraction_result
         
+        # --- TOKEN TRACKING ---
+        usage_stats = {
+            "image_analysis": {"total_token_count": 0},
+            "detailed_analysis": {"total_token_count": 0},
+            "raw_analysis": {"total_token_count": 0},
+            "congruence_analysis": {"total_token_count": 0},
+            "process_cross_analysis": {"total_token_count": 0},
+            "index_analysis": {"total_token_count": 0},
+            "total_tokens": 0
+        }
+
         # --- PHASE 2 ---
         update_task_progress(task_id, 2, "Analizando elementos visuales e imágenes...")
         from analyzers import image_analyzer
@@ -163,7 +174,9 @@ async def run_analysis_task(task_id: str, file_path: str):
                 if "image_bytes" in img and img["image_bytes"]:
                     update_task_progress(task_id, 2, "Analizando imágenes...", detail=f"Pág {page['page_number']}: Interpretando imagen {img_idx+1} de {len(images)}...")
                     try:
-                        desc = image_analyzer.generate_image_description(img["image_bytes"])
+                        desc, usage = image_analyzer.generate_image_description(img["image_bytes"])
+                        if usage:
+                            usage_stats["image_analysis"]["total_token_count"] += usage.get("total_token_count", 0)
                     except Exception as e:
                         print(f"Error interpreting image: {e}")
                         desc = "[Error en análisis de imagen]"
@@ -187,8 +200,10 @@ async def run_analysis_task(task_id: str, file_path: str):
         # --- PHASE 3: DETAILED ANALYSIS ---
         update_task_progress(task_id, 3, "Generando informe estructural...")
         try:
-             detailed_json_raw = detailed_analyzer.extract_detailed_analysis(pages_data)
+             detailed_json_raw, usage = detailed_analyzer.extract_detailed_analysis(pages_data)
              detailed_report = json.loads(detailed_json_raw)
+             if usage:
+                 usage_stats["detailed_analysis"] = usage
         except Exception as e:
              print(f"Phase 3 Error: {e}")
              detailed_report = None
@@ -234,10 +249,18 @@ async def run_analysis_task(task_id: str, file_path: str):
             
             # Execute RAW Analysis
             if consolidacion_raw_object:
+                print(f"✅ RAW Object created with {len(consolidacion_raw_object['documento']['analisis_raw'])} pages. Sending to IA...")
                 raw_congruence_report = raw_congruence_analyzer.analyze_raw_congruence(consolidacion_raw_object)
+                if raw_congruence_report and "usage" in raw_congruence_report:
+                    usage_stats["raw_analysis"] = raw_congruence_report["usage"]
+                print(f"✅ RAW Analysis returned type: {type(raw_congruence_report)}")
+            else:
+                print("❌ RAW Object is empty.")
                 
         except Exception as e:
             print(f"Error building/analyzing RAW json: {e}")
+            import traceback
+            traceback.print_exc()
 
         # --- PHASE 4: INDEX & CONGRUENCE ---
         update_task_progress(task_id, 4, "Validando congruencia...")
@@ -247,7 +270,12 @@ async def run_analysis_task(task_id: str, file_path: str):
         if detailed_report:
             try:
                 index_card = report_generator.generate_index_card(pages_data)
+                if index_card and "usage" in index_card:
+                    usage_stats["index_analysis"] = index_card["usage"]
+                
                 congruence_report = congruence_analyzer.analyze_document_congruence(detailed_report, pages_data)
+                if congruence_report and "usage" in congruence_report:
+                    usage_stats["congruence_analysis"] = congruence_report["usage"]
             except Exception as e:
                 print(f"Phase 4 Error: {e}")
 
@@ -258,6 +286,8 @@ async def run_analysis_task(task_id: str, file_path: str):
         if detailed_report:
             try:
                 process_cross_report = process_cross_analyzer.analyze_process_crossing(detailed_report, pages_data)
+                if process_cross_report and "usage" in process_cross_report:
+                    usage_stats["process_cross_analysis"] = process_cross_report["usage"]
             except Exception as e:
                 print(f"Phase 5 Error: {e}")
 
@@ -269,6 +299,11 @@ async def run_analysis_task(task_id: str, file_path: str):
         except Exception as e:
             print(f"Phase 6 Error: {e}")
 
+        # Calculate total tokens
+        usage_stats["total_tokens"] = sum(
+            s.get("total_token_count", 0) for k, s in usage_stats.items() if isinstance(s, dict)
+        )
+
         # STORE SUCCESS
         final_result = {
             "metadata": pdf_meta,
@@ -276,10 +311,11 @@ async def run_analysis_task(task_id: str, file_path: str):
             "detailed_report": detailed_report,
             "congruence_report": congruence_report,
             "process_cross_report": process_cross_report,
-            "raw_congruence_report": raw_congruence_report, # NEW
+            "raw_congruence_report": raw_congruence_report if raw_congruence_report else {}, # NEW
             "impersonation_alerts": impersonation_alerts,
             "index_card": index_card,
-            "page_count": len(serialized_pages)
+            "page_count": len(serialized_pages),
+            "usage_stats": usage_stats
         }
         
         tasks_db[task_id]["status"] = "completed"
@@ -353,6 +389,8 @@ async def upload_document(
     background_tasks: BackgroundTasks = None,
     org_id: Optional[str] = Form(None)
 ):
+    print(f"🔥 [ENDPOINT] Received upload request for file: {file.filename}", flush=True)
+    
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
     
@@ -364,7 +402,9 @@ async def upload_document(
     try:
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        print(f"✅ File saved to temp: {file_path}", flush=True)
     except Exception as e:
+        print(f"❌ Error saving file: {e}", flush=True)
         raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
     
     # --- CHECK DUPLICATES (HASH) ---

@@ -89,7 +89,7 @@ def analyze_pdf(file_path, progress_callback=None):
                         "name": img.name,
                         "data_size": len(img.data),
                         "image_bytes": img.data,
-                        "description": "[Pendiente de análisis IA]" 
+                        "description": "[Pendiente de análisis]" 
                     })
             
             page_card = {

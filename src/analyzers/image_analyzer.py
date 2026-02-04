@@ -60,9 +60,20 @@ def generate_image_description(image_bytes):
             "   Asegura que NINGÚN paso visible sea omitido.",
             image_part
         ])
-        return response.text.strip()
+        
+        # Capture usage data
+        usage = getattr(response, 'usage_metadata', None)
+        usage_data = {}
+        if usage:
+            usage_data = {
+                "prompt_token_count": usage.prompt_token_count,
+                "candidates_token_count": usage.candidates_token_count,
+                "total_token_count": usage.total_token_count
+            }
+            
+        return response.text.strip(), usage_data
     except Exception as e:
-        return f"[ERROR] Falló Gemini (Imagen): {str(e)}"
+        return f"[ERROR] Falló Gemini (Imagen): {str(e)}", {}
 
 def generate_text_interpretation(text_content):
     """
@@ -70,12 +81,12 @@ def generate_text_interpretation(text_content):
     """
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key or api_key == "YOUR_API_KEY_HERE":
-        return "[ERROR] API Key no configurada."
+        return "[ERROR] API Key no configurada.", {}
     
     genai.configure(api_key=api_key)
 
     if not text_content or len(text_content.strip()) < 10:
-        return "No hay suficiente texto para interpretar."
+        return "No hay suficiente texto para interpretar.", {}
 
     try:
         model = genai.GenerativeModel('gemini-2.0-flash')
@@ -86,6 +97,17 @@ def generate_text_interpretation(text_content):
             "Evita introducciones innecesarias. Sé directo y profesional.\n\n"
             f"TEXTO A ANALIZAR:\n{text_content}"
         ])
-        return response.text.strip()
+        
+        # Capture usage data
+        usage = getattr(response, 'usage_metadata', None)
+        usage_data = {}
+        if usage:
+            usage_data = {
+                "prompt_token_count": usage.prompt_token_count,
+                "candidates_token_count": usage.candidates_token_count,
+                "total_token_count": usage.total_token_count
+            }
+            
+        return response.text.strip(), usage_data
     except Exception as e:
-        return f"[ERROR] Falló Gemini (Texto): {str(e)}"
+        return f"[ERROR] Falló Gemini (Texto): {str(e)}", {}

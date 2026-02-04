@@ -52,7 +52,18 @@ def extract_index_and_congruence(pages_data):
     try:
         response = call_with_retry(model.generate_content, prompt)
         clean_response = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_response)
+        parsed = json.loads(clean_response)
+        
+        # Capture usage metadata
+        usage = getattr(response, 'usage_metadata', None)
+        if usage:
+            parsed["usage"] = {
+                "prompt_token_count": usage.prompt_token_count,
+                "candidates_token_count": usage.candidates_token_count,
+                "total_token_count": usage.total_token_count
+            }
+            
+        return parsed
     except Exception as e:
         print(f"Error in Index Analysis: {e}")
-        return None
+        return {"usage": {"total_token_count": 0}}
