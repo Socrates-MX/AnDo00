@@ -59,20 +59,25 @@ def analyze_document_congruence(detailed_report, pages_data):
         {{ "relacion": "Políticas vs Procedimientos", "resultado": "✅/⚠️/❌", "evidencia": "..." }},
         {{ "relacion": "Diagrama vs Participantes", "resultado": "✅/⚠️/❌", "evidencia": "..." }},
         {{ "relacion": "Participantes vs Firmantes", "resultado": "✅/⚠️/❌", "evidencia": "..." }}
-      ],
-      "conclusion": {{
-        "estado": "Congruente / Parcialmente congruente / No congruente",
-        "hallazgos": ["hallazgo 1", "hallazgo 2"],
-        "riesgos": ["riesgo 1", "riesgo 2"],
-        "impacto": "Impacto potencial en auditoría."
-      }}
+      ]
     }}
     """
 
     try:
         response = call_with_retry(model.generate_content, prompt)
         clean_response = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_response)
+        parsed = json.loads(clean_response)
+        
+        # Capture usage metadata
+        usage = getattr(response, 'usage_metadata', None)
+        if usage:
+            parsed["usage"] = {
+                "prompt_token_count": usage.prompt_token_count,
+                "candidates_token_count": usage.candidates_token_count,
+                "total_token_count": usage.total_token_count
+            }
+            
+        return parsed
     except Exception as e:
         print(f"Error in Congruence Analysis: {e}")
-        return None
+        return {"usage": {"total_token_count": 0}}

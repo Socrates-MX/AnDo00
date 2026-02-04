@@ -2,6 +2,8 @@ import os
 import google.generativeai as genai
 from utils.ai_retry import call_with_retry
 from dotenv import load_dotenv
+from PIL import Image
+import io
 
 load_dotenv()
 
@@ -12,12 +14,7 @@ def analyze_images_on_page(page_content):
     Analyzes images on a page.
     Currently a placeholder for extraction logic, but connected to generation.
     """
-    # In a real scenario, we would extract image bytes here.
-    # For this prototype, we return an empty list or mock data to valid integration.
     return []
-
-from PIL import Image
-import io
 
 def generate_image_description(image_bytes):
     """
@@ -25,12 +22,12 @@ def generate_image_description(image_bytes):
     """
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key or api_key == "YOUR_API_KEY_HERE":
-        return "[ERROR] API Key no configurada en .env."
+        return "[ERROR] API Key no configurada en .env.", {}
     
     genai.configure(api_key=api_key)
 
     try:
-        # Detect MIME type using PIL instead of deprecated imghdr
+        # Detect MIME type using PIL
         img = Image.open(io.BytesIO(image_bytes))
         mime_type = Image.MIME.get(img.format, "image/png")
         
@@ -42,19 +39,38 @@ def generate_image_description(image_bytes):
         }
         
         response = call_with_retry(model.generate_content, [
-            "Analiza esta imagen extraída de un PDF para una auditoría de procesos.\n"
-            "INSTRUCCIONES:\n"
-            "1. Si la imagen es un LOGOTIPO, MARCA DE AGUA decorativa o elemento irrelevante, responde EXACTAMENTE: [SKIP]\n"
-            "2. Si la imagen es SUSTANTIVA (DIAGRAMA DE FLUJO, organigrama, tabla de datos, firma o gráfico):\n"
-            "   - Identifica QUÉ ES (ej. 'Diagrama de Flujo del Proceso de Compras').\n"
-            "   - Realiza un OCR de los textos dentro de la imagen.\n"
-            "   - Explica de forma lógica y técnica el contenido (ej. pasos, responsables, decisiones).\n"
-            "   - Describe el hallazgo de manera profesional para un auditor.",
+            "Analiza esta imagen con rigor forense para auditoría.\n"
+            "ESCRUTINIO DE TIPO:\n"
+            "1. Si es LOGOTIPO, MARCA DE AGUA o elemento decorativo: Responde EXACTAMENTE: [SKIP]\n"
+            "2. Si es un DIAGRAMA DE FLUJO, PROCESO o TABLA DE DECISIÓN (CRÍTICO):\n"
+            "   Debes transcribir el flujo COMPLETO a texto lógico estructurado.\n"
+            "   FORMATO DE SALIDA:\n"
+            "   **TIPO:** [Diagrama de Flujo / Tabla / Gráfico]\n"
+            "   **PROCESO:** [Nombre inferido del proceso]\n"
+            "   **ROLES VISIBLES:** [Lista de carriles/actores si existen]\n"
+            "   **FLUJO LÓGICO PASO A PASO:**\n"
+            "   1. [Inicio] Descripción...\n"
+            "   2. [Actividad] ...\n"
+            "   3. [Decisión] ¿Condición? (Si -> Paso X, No -> Paso Y)\n"
+            "   ...\n"
+            "   [Fin] Conclusión.\n"
+            "   Asegura que NINGÚN paso visible sea omitido.",
             image_part
         ])
-        return response.text.strip()
+        
+        # Capture usage data
+        usage = getattr(response, 'usage_metadata', None)
+        usage_data = {}
+        if usage:
+            usage_data = {
+                "prompt_token_count": usage.prompt_token_count,
+                "candidates_token_count": usage.candidates_token_count,
+                "total_token_count": usage.total_token_count
+            }
+            
+        return response.text.strip(), usage_data
     except Exception as e:
-        return f"[ERROR] Falló Gemini (Imagen): {str(e)}"
+        return f"[ERROR] Falló Gemini (Imagen): {str(e)}", {}
 
 def generate_text_interpretation(text_content):
     """
@@ -62,12 +78,12 @@ def generate_text_interpretation(text_content):
     """
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key or api_key == "YOUR_API_KEY_HERE":
-        return "[ERROR] API Key no configurada."
+        return "[ERROR] API Key no configurada.", {}
     
     genai.configure(api_key=api_key)
 
     if not text_content or len(text_content.strip()) < 10:
-        return "No hay suficiente texto para interpretar."
+        return "No hay suficiente texto para interpretar.", {}
 
     try:
         model = genai.GenerativeModel('gemini-2.0-flash')
@@ -78,6 +94,17 @@ def generate_text_interpretation(text_content):
             "Evita introducciones innecesarias. Sé directo y profesional.\n\n"
             f"TEXTO A ANALIZAR:\n{text_content}"
         ])
-        return response.text.strip()
+        
+        # Capture usage data
+        usage = getattr(response, 'usage_metadata', None)
+        usage_data = {}
+        if usage:
+            usage_data = {
+                "prompt_token_count": usage.prompt_token_count,
+                "candidates_token_count": usage.candidates_token_count,
+                "total_token_count": usage.total_token_count
+            }
+            
+        return response.text.strip(), usage_data
     except Exception as e:
-        return f"[ERROR] Falló Gemini (Texto): {str(e)}"
+        return f"[ERROR] Falló Gemini (Texto): {str(e)}", {}

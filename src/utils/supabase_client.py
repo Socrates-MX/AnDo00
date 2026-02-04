@@ -95,12 +95,13 @@ class SupabaseLightClient:
 def get_supabase_client():
     """
     Retorna un cliente Supabase REAL basado en peticiones HTTP directas (REST/Postgrest).
-    Esto evita la dependencia de la librería 'supabase-py' que falla en Python 3.14.
+    Prioriza 'SUPABASE_SERVICE_ROLE_KEY' para operaciones administrativas (Bypass RLS).
     """
     url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_KEY")
+    # Intentar usar Service Role Key primero (bypass RLS)
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
     
-    if not url or not key or url == "YOUR_SUPABASE_URL" or key == "YOUR_SUPABASE_KEY":
+    if not url or not key or "YOUR_" in url or "YOUR_" in key:
         return None
         
     return SupabaseLightClient(url, key)

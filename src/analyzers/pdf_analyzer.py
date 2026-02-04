@@ -1,6 +1,7 @@
 import pypdf
+import re
 
-def analyze_pdf(file_path):
+def analyze_pdf(file_path, progress_callback=None):
     """
     Analyzes a PDF file to extract text and basic metadata.
     Returns a list of page objects.
@@ -11,6 +12,9 @@ def analyze_pdf(file_path):
         num_pages = len(reader.pages)
         
         for i, page in enumerate(reader.pages):
+            if progress_callback:
+                progress_callback(i + 1, num_pages)
+
             text = page.extract_text() or ""
             
             # Annotation Extraction (Electronic Signatures / Stamps)
@@ -45,7 +49,39 @@ def analyze_pdf(file_path):
             
             full_text = text + annot_text
 
-            # Image Extraction Logic
+            # --- STRUCTURAL HEURISTICS (Page-by-Page) ---
+            structure_data = {
+                "titles_detected": [],
+                "footer_validation": {"valid": True, "issues": []},
+                "has_images": len(page.images) > 0
+            }
+
+            # 1. Title Detection (Simple Uppercase Heuristic)
+            lines = full_text.split('\n')
+            for line in lines[:10]: # Check header area
+                clean_line = line.strip()
+                if clean_line.isupper() and len(clean_line) > 5 and len(clean_line) < 100:
+                    structure_data["titles_detected"].append(clean_line)
+            
+            # 2. Integrity Check (Page X of Y)
+            # Regex for "Página X de Y", "Page X of Y", "X / Y"
+            pg_match = re.search(r"(?:P[áa]gina|Page)\s*(\d+)\s*(?:de|of|\/)\s*(\d+)", full_text, re.IGNORECASE)
+            if pg_match:
+                try:
+                    pg_current = int(pg_match.group(1))
+                    pg_total = int(pg_match.group(2))
+                    
+                    if pg_current != (i + 1):
+                        structure_data["footer_validation"]["valid"] = False
+                        structure_data["footer_validation"]["issues"].append(f"Num. Pág. no coincide (Texto: {pg_current} vs Real: {i+1})")
+                    
+                    if pg_total != num_pages:
+                        structure_data["footer_validation"]["valid"] = False
+                        structure_data["footer_validation"]["issues"].append(f"Total Páginas no coincide (Texto: {pg_total} vs Real: {num_pages})")
+                except:
+                    pass
+            
+            # Image Extraction Logic (Existing)
             images_found = []
             if len(page.images) > 0:
                 for img in page.images:
@@ -53,7 +89,7 @@ def analyze_pdf(file_path):
                         "name": img.name,
                         "data_size": len(img.data),
                         "image_bytes": img.data,
-                        "description": "[Pendiente de análisis IA]" 
+                        "description": "[Pendiente de análisis]" 
                     })
             
             page_card = {
@@ -61,7 +97,8 @@ def analyze_pdf(file_path):
                 "text_content": full_text,
                 "token_count_est": len(full_text.split()),
                 "images": images_found,
-                "annots": annots_found
+                "annots": annots_found,
+                "structure": structure_data
             }
             results.append(page_card)
             
@@ -69,4 +106,12 @@ def analyze_pdf(file_path):
         print(f"Error reading PDF: {e}")
         return None
         
-    return results
+    # Extraer metadatos extendidos y estado de encriptación
+    meta_dict = {}
+    if reader.metadata:
+        meta_dict = {k.replace("/", ""): v for k, v in reader.metadata.items()}
+    
+    # Agregar estado de seguridad
+    meta_dict["is_encrypted"] = reader.is_encrypted
+    
+    return results, meta_dict

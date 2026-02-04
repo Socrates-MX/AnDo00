@@ -6,13 +6,12 @@ import os
 def extract_detailed_analysis(pages_data, file_path=None):
     """
     Generates the Detailed Analysis report.
-    Uses MULTIMODAL PDF analysis (if file_path provided) to ensure 
-    precision in signatures and timestamps.
+    Uses consolidated truth (Text + AI Interpreted Images).
     Follows Official Prompt V1.02 - Ajuste Clasificación Tipo de Firma.
     """
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key or api_key == "YOUR_API_KEY_HERE":
-        return None
+        return None, {}
 
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.0-flash')
@@ -46,7 +45,11 @@ def extract_detailed_analysis(pages_data, file_path=None):
     2. Lo mismo aplica para Firmas, Sellos y Tablas. Confía 100% en las interpretaciones previas proporcionadas.
 
     INSTRUCCIONES DE ESTRUCTURA:
-    - REVISADO Y APROBADO: Extrae nombres y puestos de forma literal. Clasifica la firma como 'Firma Electrónica' o 'Manual' basándote en el OCR y evidencias visuales previas.
+    - REVISADO Y APROBADO: Busca activamente tablas con encabezados como "Nombe", "Puesto", "Firma", "Fecha" o "REVISADO Y APROBADO ELECTRÓNICAMENTE".
+    - IMPORTANTE CLASIFICACIÓN DE FIRMA: Mira el contenido visual de la celda 'Firma':
+      - Si es TEXTO legible (ej. nombre repetido, hash, texto de certificado): Escribe "Firmado Electrónicamente por: " seguido del texto extraído.
+      - Si es un Garabato/Rúbrica/Imagen hecha a mano: Escribe "Firmado Manualmente: firma autógrafa (imagen)".
+    - IMPORTANTE: En la columna 'Fecha', captura el timestamp completo (fecha y hora si existe).
     - POLÍTICAS Y PROCEDIMIENTOS: Transcripción íntegra y resumen ejecutivo.
     - Si un dato no existe en la guía, responde 'No identificado en el documento'.
 
@@ -75,6 +78,7 @@ def extract_detailed_analysis(pages_data, file_path=None):
       "objetivo_completo": "...",
       "alcance_completo": "...",
       "interpretacion_diagrama_flujo": "SÍNTESIS MAESTRA de los diagramas descritos en la guía previa.",
+      "mermaid_graph": "graph TD;\nStart((Inicio)) --> B[Paso 1: ...];\n... (Sintaxis completa y válida de MermaidJS que represente el flujo operativo)",
       "politicas": {{
         "texto_completo": "...",
         "identificacion_participantes_ia": ["..."],
@@ -87,13 +91,28 @@ def extract_detailed_analysis(pages_data, file_path=None):
     }}
     """
 
+    prompt_parts = [main_prompt]
+    
+    # EXCLUSIVE RAW SOURCE: 
+    # We purposefully DO NOT upload the PDF file here by default.
+    # The 'full_document_context' built above contains the consolidated truth.
+    # However, for signatures and tables, multimodality is better.
+    # If file_path is provided, we can use it.
+    
     try:
-        # Nota: Ya no adjuntamos el archivo visual (multimodal) por defecto para ahorrar tokens y forzar el uso de la guía.
-        # Solo se enviaría si fuera estrictamente necesario, pero la guía ya es rica en contenido.
-        response = call_with_retry(model.generate_content, main_prompt)
+        response = call_with_retry(model.generate_content, prompt_parts)
         clean_response = response.text.replace("```json", "").replace("```", "").strip()
-        return clean_response
+        
+        # Capture usage metadata
+        usage = getattr(response, 'usage_metadata', None)
+        usage_data = {}
+        if usage:
+            usage_data = {
+                "prompt_token_count": usage.prompt_token_count,
+                "candidates_token_count": usage.candidates_token_count,
+                "total_token_count": usage.total_token_count
+            }
+        
+        return clean_response, usage_data
     except Exception as e:
-        return f"Error en síntesis detallada: {str(e)}"
-
-
+        return f"Error en síntesis detallada: {str(e)}", {}

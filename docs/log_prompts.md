@@ -316,4 +316,3 @@
 - Se aplicó recorte extremo y padding del 10% para maximizar la visibilidad en pestañas.
 - Se implementó `favicon_injector.py` para inyectar explícitamente las declaraciones `<link>` en el encabezado de la aplicación.
 - Se profesionalizó la presencia visual de la pestaña del navegador.
-
