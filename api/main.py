@@ -43,15 +43,16 @@ app.add_middleware(
 )
 
 # --- CONFIG ---
-# In production, use os.getenv("SUPABASE_URL")
 SUPABASE_URL = os.getenv("SUPABASE_URL") 
-SUPABASE_KEY = os.getenv("SUPABASE_KEY") 
+# We prefer SERVICE_ROLE_KEY for headless backend operations to bypass RLS if needed,
+# Falling back to the regular key if not present.
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") 
 supabase: Optional[Client] = None
 
 if SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("✅ Supabase Client Initialized")
+        print(f"✅ Supabase Client Initialized ({'Service Role' if os.getenv('SUPABASE_SERVICE_ROLE_KEY') else 'Anon Key'})")
     except Exception as e:
         print(f"❌ Failed to init Supabase: {e}")
 else:
@@ -66,8 +67,15 @@ class TaskResponse(BaseModel):
     task_id: str
     status: str
     message: str
+    scenario: Optional[str] = None
+    conflict_details: Optional[Dict[str, Any]] = None
     existing_id: Optional[str] = None
     version: Optional[str] = None
+
+class AnalysisConfirmRequest(BaseModel):
+    task_id: str
+    action: str  # 'full_analysis', 'changes_only', 'cancel'
+    org_id: Optional[str] = None
 
 class AnalysisResult(BaseModel):
     task_id: str
@@ -80,6 +88,7 @@ class AnalysisResult(BaseModel):
     error: Optional[str] = None
     is_duplicate: Optional[bool] = False
     existing_doc_id: Optional[str] = None
+    scenario: Optional[str] = None
 
 # --- HELPER FUNCTIONS ---
 def calculate_file_hash(file_path: str) -> str:
@@ -89,6 +98,18 @@ def calculate_file_hash(file_path: str) -> str:
         for byte_block in iter(lambda: f.read(4096), b""):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
+
+def normalize_filename(filename: str) -> str:
+    """Normaliza el nombre del archivo para comparaciones."""
+    import re
+    # Quitar extensión, pasar a minúsculas, quitar espacios extra
+    name = os.path.splitext(filename)[0].lower().strip()
+    name = re.sub(r'\s+', ' ', name)
+    # Opcional: quitar sufijos comunes de copias (1), (2), final, v2
+    name = re.sub(r'\s*\(\d+\)$', '', name)
+    name = re.sub(r'[\s_-]final$', '', name)
+    name = re.sub(r'[\s_-]v\d+$', '', name)
+    return name
 
 def update_task_progress(task_id: str, step_index: int, step_description: str, detail: str = None):
     if task_id in tasks_db:
@@ -308,46 +329,59 @@ async def run_analysis_task(task_id: str, file_path: str):
         tasks_db[task_id]["result"] = final_result
         update_task_progress(task_id, 6, "Completado")
         
-        # --- SAVE TO SUPABASE (Optional for now) ---
+        # --- SAVE TO SUPABASE ---
         if supabase:
             try:
                 task_data = tasks_db[task_id]
-                # Insert into 'documents'
-                doc_meta = {
-                    "nombre_archivo": task_data.get("filename", "unknown.pdf"),
-                    "hash_documento": task_data.get("hash", ""),
-                    "numero_paginas": len(serialized_pages),
-                    "estado": "revisado",
-                    "version_actual": 1,
-                    "organization_id": task_data.get("org_id"),
-                    "fecha_creacion": task_data.get("created_at"),
-                    "fecha_actualizacion": datetime.now().isoformat()
+                org_id = task_data.get("org_id")
+                filename = task_data.get("filename")
+                file_hash = task_data.get("hash")
+                
+                # 0. Get parent info if version family exists
+                scenario = task_data.get("scenario", "NEW")
+                conflict_details = task_data.get("conflict_details")
+                
+                parent_id = None
+                version_to_set = 1
+                
+                if conflict_details:
+                    parent_id = conflict_details.get("id")
+                    # Increment version based on previous one
+                    version_to_set = conflict_details.get("current_version", 1) + 1
+                
+                # 1. Insert into 'ando_documents' (Master Record for this version)
+                doc_header = {
+                    "organization_id": org_id,
+                    "file_name": filename,
+                    "file_hash": file_hash,
+                    "page_count": len(serialized_pages),
+                    "current_version": version_to_set,
+                    "status": "active",
+                    "parent_id": parent_id,
+                    "updated_at": datetime.now().isoformat()
                 }
                 
-                # 1. Insert Document Header
-                res_doc = supabase.table("documents").insert(doc_meta).execute()
+                # Execute insert
+                res_doc = supabase.table("ando_documents").insert(doc_header).execute()
                 
                 if res_doc.data and len(res_doc.data) > 0:
                     new_doc_id = res_doc.data[0]['id']
                     
-                    # INJECT ID
+                    # INJECT ID back to result for frontend
                     final_result["document_db_id"] = new_doc_id
                     tasks_db[task_id]["result"] = final_result
 
-
-
-                    # 2. Insert Detailed Analysis
-                    analysis_record = {
+                    # 2. Insert Analysis version payload
+                    version_entry = {
                         "document_id": new_doc_id,
-                        "payload_completo": final_result,
-                        "ConsolidacionRAW_completo": consolidacion_raw_object, # NEW FIELD
-                        "version": 1,
-                        "fecha_analisis": datetime.now().isoformat()
+                        "version_number": version_to_set,
+                        "full_analysis_payload": final_result
                     }
-                    supabase.table("analysis_detallado").insert(analysis_record).execute()
-                    print(f"✅ Document and Analysis saved. ID: {new_doc_id}")
+                    supabase.table("ando_analysis_versions").insert(version_entry).execute()
+                    
+                    print(f"✅ V{version_to_set} Analysis saved in 'ando_documents' and 'ando_analysis_versions'. ID: {new_doc_id}")
                 else:
-                    print("❌ Failed to insert document header, returned no data.")
+                    print("❌ Failed to insert document header into 'ando_documents'.")
 
             except Exception as db_err:
                 print(f"❌ Failed to save to Supabase: {db_err}")
@@ -390,70 +424,116 @@ async def upload_document(
             shutil.copyfileobj(file.file, buffer)
         print(f"✅ File saved to temp: {file_path}", flush=True)
     except Exception as e:
-        print(f"❌ Error saving file: {e}", flush=True)
         raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
     
-    # --- CHECK DUPLICATES (HASH) ---
+    # --- STEP 1: CALCULATE HINTS ---
     file_hash = calculate_file_hash(file_path)
-    existing_doc = None
+    filename_original = file.filename
+    normalized_name = normalize_filename(file.filename)
     
-    if supabase:
+    scenario = "NEW"
+    conflict_details = None
+    existing_id = None
+    existing_version = "1"
+    
+    # --- STEP 2: CONSULT SUPABASE (PRIORITIZED) ---
+    if supabase and org_id:
         try:
-            # Query db for existing hash in 'documents' table
-            # If org_id provided, we check within that org (or global if we decide strict uniqueness)
-            query = supabase.table("documents").select("*").eq("hash_documento", file_hash)
+            # Current approach: 1. Search by hash first (covers A and B)
+            docs_with_hash = supabase.table("ando_documents").select("*")\
+                .eq("organization_id", org_id)\
+                .eq("file_hash", file_hash)\
+                .eq("status", "active")\
+                .execute().data
             
-            if org_id:
-                query = query.eq("organization_id", org_id)
+            if docs_with_hash:
+                # Check for A (Exact: Hash + Name)
+                exact = next((d for d in docs_with_hash if normalize_filename(d['file_name']) == normalized_name), None)
+                if exact:
+                    scenario = "EXACT_MATCH"
+                    conflict_details = exact
+                else:
+                    # Case B: Contenido idéntico but different name
+                    scenario = "CONTENT_ONLY"
+                    conflict_details = docs_with_hash[0]
+            else:
+                # Check for C (Name similar but different hash)
+                docs_with_name = supabase.table("ando_documents").select("*")\
+                    .eq("organization_id", org_id)\
+                    .eq("status", "active")\
+                    .execute().data
                 
-            res = query.execute()
-            if res.data and len(res.data) > 0:
-                existing_doc = res.data[0]
-        except Exception as e:
-            print(f"Warning: duplicate check failed: {e}")
+                # Manual name match
+                match_name = next((d for d in docs_with_name if normalize_filename(d['file_name']) == normalized_name), None)
+                if match_name:
+                    scenario = "NAME_ONLY"
+                    conflict_details = match_name
 
-    if existing_doc and False: # DISABLED TO FORCE RE-ANALYSIS FOR DEV PURPOSES
-        # Clean temp file immediately
-        os.remove(file_path)
-        
-        # Register "Fake" task
-        tasks_db[task_id] = {
-            "status": "completed",
-            "created_at": datetime.now().isoformat(),
-            "is_duplicate": True,
-            "existing_doc_id": existing_doc.get("id"),
-            "result": { 
-                "metadata": {"title": existing_doc.get("nombre_archivo", "Existing Doc")},
-                "page_count": existing_doc.get("numero_paginas", 0)
-            },
-            "steps": [
-                 {"label": "Documento ya existente en base de datos (Hash Match)", "status": "completed"}
-            ] 
-        }
-        
+            if conflict_details:
+                existing_id = conflict_details.get('id')
+                existing_version = str(conflict_details.get('current_version', 1))
+
+        except Exception as e:
+            print(f"Warning: priority search failed: {e}")
+
+    # Register task in memory with initial metadata
+    tasks_db[task_id] = {
+        "status": "pending_decision" if scenario != "NEW" else "pending",
+        "created_at": datetime.now().isoformat(),
+        "filename": filename_original,
+        "hash": file_hash,
+        "org_id": org_id,
+        "file_path": file_path,
+        "scenario": scenario,
+        "conflict_details": conflict_details,
+        "normalized_name": normalized_name
+    }
+
+    if scenario != "NEW":
         return {
             "task_id": task_id,
-            "status": "already_exists",
-            "message": "Document found in database.",
-            "existing_id": existing_doc.get("id"),
-            "version": str(existing_doc.get("version_actual", "1"))
+            "status": "conflict",
+            "message": f"Conflict detected: {scenario}",
+            "scenario": scenario,
+            "conflict_details": conflict_details,
+            "existing_id": existing_id,
+            "version": existing_version
         }
 
     # If new, proceed normally
-    tasks_db[task_id] = {
-        "status": "pending",
-        "created_at": datetime.now().isoformat(),
-        "filename": file.filename,
-        "hash": file_hash,
-        "org_id": org_id 
-    }
-    
     background_tasks.add_task(run_analysis_task, task_id, file_path)
     
     return {
         "task_id": task_id,
         "status": "pending",
         "message": "Analysis started."
+    }
+
+@app.post("/analyze/confirm")
+async def confirm_analysis(
+    req: AnalysisConfirmRequest,
+    background_tasks: BackgroundTasks
+):
+    if req.task_id not in tasks_db:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task = tasks_db[req.task_id]
+    if req.action == "cancel":
+        if os.path.exists(task["file_path"]):
+            os.remove(task["file_path"])
+        del tasks_db[req.task_id]
+        return {"status": "cancelled"}
+    
+    # Set choice and start background task
+    task["status"] = "pending"
+    task["analysis_mode"] = req.action  # 'full_analysis' or 'changes_only'
+    
+    background_tasks.add_task(run_analysis_task, req.task_id, task["file_path"])
+    
+    return {
+        "task_id": req.task_id,
+        "status": "pending",
+        "message": f"Analysis confirmed as {req.action}."
     }
 
 @app.get("/analyze/{task_id}", response_model=AnalysisResult)
@@ -470,8 +550,9 @@ def get_analysis_status(task_id: str):
         "steps": task.get("steps", []),
         "current_step": task.get("current_step"),
         "current_detail": task.get("current_detail"),
-        "is_duplicate": task.get("is_duplicate", False),
-        "existing_doc_id": task.get("existing_doc_id")
+        "is_duplicate": task.get("scenario") != "NEW" and task.get("scenario") is not None,
+        "existing_doc_id": task.get("conflict_details", {}).get("id") if task.get("conflict_details") else None,
+        "scenario": task.get("scenario")
     }
     
     if task["status"] == "completed":
@@ -484,61 +565,62 @@ def get_analysis_status(task_id: str):
 @app.get("/documents")
 def list_documents(org_id: Optional[str] = None):
     """
-    List documents. If org_id is provided, filters by that organization.
+    List documents using official 'ando_documents' table.
     """
     if not supabase:
         raise HTTPException(status_code=503, detail="Database not available")
         
     try:
-        query = supabase.table("documents").select("*")
-        
+        query = supabase.table("ando_documents").select("*")
         if org_id:
             query = query.eq("organization_id", org_id)
-            
-        # Order by newest first
-        query = query.order("fecha_actualizacion", desc=True)
+        
+        # Optionally filter by parent_id IS NULL to show only families, 
+        # but User prompt implies showing all recent versions in the list.
+        # We'll just show active versions.
+        query = query.eq("status", "active")
+        query = query.order("updated_at", desc=True)
         
         res = query.execute()
         return res.data
-        
     except Exception as e:
         print(f"Error listing documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/documents/{document_id}")
-def get_document_result(document_id: str):
+def get_document_details(document_id: str):
+    """
+    Fetch full analysis from 'ando_analysis_versions'.
+    """
     if not supabase:
         raise HTTPException(status_code=503, detail="Database not available")
         
     try:
-        # Fetch document meta
-        doc_res = supabase.table("documents").select("*").eq("id", document_id).execute()
+        # 1. Get header
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
         if not doc_res.data:
             raise HTTPException(status_code=404, detail="Document not found")
-            
         doc = doc_res.data[0]
         
-        # Fetch latest analysis
-        # We order by version desc to get the latest
-        analysis_res = supabase.table("analysis_detallado")\
+        # 2. Get latest analysis for this specific doc record
+        analysis_res = supabase.table("ando_analysis_versions")\
             .select("*")\
             .eq("document_id", document_id)\
-            .order("version", desc=True)\
+            .order("version_number", desc=True)\
             .limit(1)\
             .execute()
             
-        analysis_data = None
-        if analysis_res.data:
-            analysis_data = analysis_res.data[0].get("payload_completo")
+        if not analysis_res.data:
+            # Fallback for old data or edge case
+            return {"status": "error", "message": "No analysis versions found for this document."}
             
+        analysis_payload = analysis_res.data[0].get("full_analysis_payload")
+        
+        # Combine meta
         return {
-            "id": doc["id"],
-            "filename": doc["nombre_archivo"],
-            "status": doc["estado"],
-            "created_at": doc["fecha_creacion"],
-            "page_count": doc["numero_paginas"],
-            "version": doc["version_actual"],
-            "data": analysis_data
+            "status": "completed",
+            "data": analysis_payload,
+            "metadata": doc
         }
 
     except Exception as e:
@@ -554,16 +636,17 @@ def generate_report(document_id: str):
         raise HTTPException(status_code=503, detail="Database not available")
 
     try:
-        # Recycle the logic from get_document_result to fetch data
-        doc_res = supabase.table("documents").select("*").eq("id", document_id).execute()
+        # Fetch meta from ando_documents
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
         if not doc_res.data:
             raise HTTPException(status_code=404, detail="Document not found")
         doc = doc_res.data[0]
 
-        analysis_res = supabase.table("analysis_detallado") \
+        # Fetch analysis from ando_analysis_versions
+        analysis_res = supabase.table("ando_analysis_versions") \
             .select("*") \
             .eq("document_id", document_id) \
-            .order("version", desc=True) \
+            .order("version_number", desc=True) \
             .limit(1) \
             .execute()
             
@@ -642,39 +725,38 @@ def generate_report(document_id: str):
 @app.post("/documents/{document_id}/version")
 async def update_document_version(document_id: str, payload: Dict[str, Any]):
     """
-    Creates a new version of the analysis for a document.
-    Does NOT re-analyze the file, just saves the user's edits as a new version.
+    Creates a new version of the analysis for a document after manual edits.
+    Uses 'ando_documents' and 'ando_analysis_versions'.
     """
     if not supabase:
         raise HTTPException(status_code=503, detail="Database not available")
 
     try:
         # 1. Get current version info
-        doc_res = supabase.table("documents").select("version_actual").eq("id", document_id).execute()
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
         if not doc_res.data:
             raise HTTPException(status_code=404, detail="Document not found")
-            
-        current_v = doc_res.data[0].get("version_actual", 1)
-        new_v = current_v + 1
         
-        # 2. Insert new analysis record
+        current_doc = doc_res.data[0]
+        new_v = (current_doc.get("current_version") or 1) + 1
+
+        # 2. Insert new analysis version record
         analysis_record = {
             "document_id": document_id,
-            "payload_completo": payload,
-            "version": new_v,
-            "fecha_analisis": datetime.now().isoformat()
+            "version_number": new_v,
+            "full_analysis_payload": payload
         }
         
-        ins_res = supabase.table("analysis_detallado").insert(analysis_record).execute()
+        ins_res = supabase.table("ando_analysis_versions").insert(analysis_record).execute()
         
         if not ins_res.data:
-             raise HTTPException(status_code=500, detail="Failed to insert new version")
+             raise HTTPException(status_code=500, detail="Failed to insert new analysis version")
 
-        # 3. Update master document version
-        upd_res = supabase.table("documents") \
+        # 3. Update master document record
+        upd_res = supabase.table("ando_documents") \
             .update({
-                "version_actual": new_v, 
-                "fecha_actualizacion": datetime.now().isoformat()
+                "current_version": new_v, 
+                "updated_at": datetime.now().isoformat()
             }) \
             .eq("id", document_id) \
             .execute()
@@ -692,26 +774,19 @@ async def update_document_version(document_id: str, payload: Dict[str, Any]):
 @app.delete("/documents/{document_id}")
 def delete_document(document_id: str):
     """
-    Deletes a document and all its associated analysis versions.
+    Deletes a document and all its associated analysis versions from official tables.
     """
     if not supabase:
         raise HTTPException(status_code=503, detail="Database not available")
 
     try:
-        # 1. Delete associated analysis records (if no ON DELETE CASCADE is set)
-        # Note: It's safer to attempt this even if CASCADE exists.
-        supabase.table("analysis_detallado").delete().eq("document_id", document_id).execute()
+        # Delete versions first
+        supabase.table("ando_analysis_versions").delete().eq("document_id", document_id).execute()
         
-        # 2. Delete the document record
-        res = supabase.table("documents").delete().eq("id", document_id).execute()
+        # Delete master document
+        res = supabase.table("ando_documents").delete().eq("id", document_id).execute()
         
-        if not res.data:
-            # Check if it was already gone or just failed
-            # But usually empty data on delete means nothing matched (idempotent-ish)
-            # Or we can check count?
-            pass
-
-        return {"status": "success", "message": f"Document {document_id} deleted"}
+        return {"status": "success", "message": f"Document {document_id} and history deleted"}
 
     except Exception as e:
         print(f"Delete Error: {e}")
