@@ -40,6 +40,20 @@ def extract_detailed_analysis(pages_data, file_path=None):
     
     TU MISIÓN: Generar el 'Informe de Auditoría Detallado' consolidando la información de la 'GUÍA DE DATOS PREVIOS'.
     
+    CRÍTICO - REGLAS DE EXTRACCIÓN AVANZADA DE CARÁTULA (PÁGINA 1):
+    Para los campos de 'contenido_principal' (Tipo, Revisión, Fecha, Título, Elaborador), aplica estas reglas infalibles en la Hoja 1:
+
+    1. ANCLAJE ESPACIAL (Spatial Mapping): Trata la Página 1 como un plano cartesiano. Si detectas una etiqueta clave (ej. "Revisión") en una coordenada, busca su valor numérico o texto en el radio de proximidad inmediata (derecha o abajo). Esto funciona aunque no existan "líneas" de tabla visibles.
+    2. NORMALIZACIÓN DE ETIQUETAS (Synonym Mapping):
+       - TIPO/NO. DOCTO: Busca "Tipo / No. de documento", "Código", "Cve", "Identificador".
+       - REVISIÓN: Busca "Número de Revisión", "Rev", "Versión", "Edición", "Control".
+       - FECHA: Busca "Fecha de efectividad", "Emisión", "Vigencia", "Fecha". Formato esperado: (dd-mm-yyyy).
+       - TÍTULO: Busca "Título del documento", "Nombre del proceso".
+       - ELABORADO POR: Busca "Elaborado por", "Autor", "Preparado por".
+    3. AUDITORÍA DE ZONA DE PODER (Header): Los primeros 250 píxeles verticales de la Página 1 se declaran "Zona de Datos Maestros". Tienes prohibido leer texto fluido aquí; debes buscar únicamente pares Etiqueta -> Valor.
+    4. VALIDACIÓN CRUZADA (OCR vs. Texto Directo): Si el flujo de texto devuelve una cadena incoherente (etiquetas mezcladas por el logo), ignora el orden del texto y reconstruye la tabla basándote en la posición física de las palabras en la hoja.
+    5. REDUNDANCIA VISUAL: Si los datos maestros están en una imagen compuesta con el LOGO (ej. Enerser), no te confundas. Separa el elemento gráfico del dato alfanumérico. Los datos están ahí, búscalos con rigor forense.
+
     CRÍTICO - SOBERANÍA DE DATOS:
     1. Si en la 'GUÍA DE DATOS PREVIOS' ya existe un [HALLAZGO VISUAL PREVIO] que describa un DIAGRAMA DE FLUJO, UTILÍZALO para el campo 'interpretacion_diagrama_flujo'. No intentes re-interpretarlo, sintetiza lo que ya se detectó.
     2. Lo mismo aplica para Firmas, Sellos y Tablas. Confía 100% en las interpretaciones previas proporcionadas.
@@ -93,12 +107,25 @@ def extract_detailed_analysis(pages_data, file_path=None):
 
     prompt_parts = [main_prompt]
     
-    # EXCLUSIVE RAW SOURCE: 
-    # We purposefully DO NOT upload the PDF file here by default.
-    # The 'full_document_context' built above contains the consolidated truth.
-    # However, for signatures and tables, multimodality is better.
-    # If file_path is provided, we can use it.
-    
+    # MULTIMODAL SOURCE: 
+    # If file_path is provided, we upload it to Gemini to allow visual inspection
+    # of Page 1 Master Data (Rule 5: Redundancy).
+    if file_path and os.path.exists(file_path):
+        try:
+            # Upload file to Gemini API (File API)
+            doc_file = genai.upload_file(path=file_path, display_name="Documento Auditoría")
+            prompt_parts.append(doc_file)
+            
+            # Additional instruction for multimodality
+            vision_instruction = """
+            ADJUNTO: Tienes el archivo original disponible. 
+            PARA LA HOJA 1: Ignora el ruido del OCR si es necesario. Observa la IMAGEN DE LA PRIMERA PÁGINA para extraer con precisión los Datos Generales (Tipo, Revisión, Fecha, Título, Elaborador).
+            Busca la tabla de carátula, incluso si está pegada al logo de la empresa.
+            """
+            prompt_parts.append(vision_instruction)
+        except Exception as vision_err:
+            print(f"Vision analysis unavailable (upload failed): {vision_err}")
+
     try:
         response = call_with_retry(model.generate_content, prompt_parts)
         clean_response = response.text.replace("```json", "").replace("```", "").strip()
