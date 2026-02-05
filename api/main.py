@@ -207,7 +207,7 @@ async def run_analysis_task(task_id: str, file_path: str):
         # --- PHASE 3: DETAILED ANALYSIS ---
         update_task_progress(task_id, 3, "Generando informe estructural...")
         try:
-             detailed_json_raw, usage = detailed_analyzer.extract_detailed_analysis(pages_data)
+             detailed_json_raw, usage = detailed_analyzer.extract_detailed_analysis(pages_data, file_path=file_path)
              detailed_report = json.loads(detailed_json_raw)
              if usage:
                  usage_stats["detailed_analysis"] = usage
@@ -325,9 +325,7 @@ async def run_analysis_task(task_id: str, file_path: str):
             "usage_stats": usage_stats
         }
         
-        tasks_db[task_id]["status"] = "completed"
         tasks_db[task_id]["result"] = final_result
-        update_task_progress(task_id, 6, "Completado")
         
         # --- SAVE TO SUPABASE ---
         if supabase:
@@ -337,15 +335,11 @@ async def run_analysis_task(task_id: str, file_path: str):
                 filename = task_data.get("filename")
                 file_hash = task_data.get("hash")
                 
-                # 0. Get parent info if version family exists
-                scenario = task_data.get("scenario", "NEW")
+                # 0. Get info if version family exists
                 conflict_details = task_data.get("conflict_details")
-                
-                parent_id = None
                 version_to_set = 1
                 
                 if conflict_details:
-                    parent_id = conflict_details.get("id")
                     # Increment version based on previous one
                     version_to_set = conflict_details.get("current_version", 1) + 1
                 
@@ -357,7 +351,6 @@ async def run_analysis_task(task_id: str, file_path: str):
                     "page_count": len(serialized_pages),
                     "current_version": version_to_set,
                     "status": "active",
-                    "parent_id": parent_id,
                     "updated_at": datetime.now().isoformat()
                 }
                 
@@ -385,6 +378,10 @@ async def run_analysis_task(task_id: str, file_path: str):
 
             except Exception as db_err:
                 print(f"❌ Failed to save to Supabase: {db_err}")
+        
+        # FINAL STATUS UPDATE (after DB attempt)
+        tasks_db[task_id]["status"] = "completed"
+        update_task_progress(task_id, 6, "Completado")
 
     except Exception as e:
         tasks_db[task_id]["status"] = "failed"
@@ -653,7 +650,7 @@ def generate_report(document_id: str):
         if not analysis_res.data:
              raise HTTPException(status_code=404, detail="Analysis payload not found")
         
-        payload = analysis_res.data[0].get("payload_completo", {})
+        payload = analysis_res.data[0].get("full_analysis_payload", {})
         
         # --- PDF GENERATION LOGIC (Simplified from Streamlit) ---
         from fpdf import FPDF
@@ -661,7 +658,7 @@ def generate_report(document_id: str):
         class ReportPDF(FPDF):
             def header(self):
                 self.set_font('Helvetica', 'B', 12)
-                self.cell(0, 10, f'Reporte de Auditoría: {doc["nombre_archivo"]}', border=False, align='C', new_x="LMARGIN", new_y="NEXT")
+                self.cell(0, 10, f'Reporte de Auditoría: {doc["file_name"]}', border=False, align='C', new_x="LMARGIN", new_y="NEXT")
                 self.ln(5)
 
             def footer(self):
@@ -678,7 +675,7 @@ def generate_report(document_id: str):
         pdf.cell(0, 10, "1. Información General", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", size=10)
         pdf.cell(0, 8, f"ID Documento: {doc['id']}", new_x="LMARGIN", new_y="NEXT")
-        pdf.cell(0, 8, f"Versión: {doc.get('version_actual', '1')}", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 8, f"Versión: {doc.get('current_version', '1')}", new_x="LMARGIN", new_y="NEXT")
         pdf.cell(0, 8, f"Fecha Análisis: {datetime.now().strftime('%Y-%m-%d %H:%M')}", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(5)
 
