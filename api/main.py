@@ -34,27 +34,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# --- CUSTOM CORS MIDDLEWARE (FORCE) ---
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
-
-class ForceCorsMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        if request.method == "OPTIONS":
-            response = Response(status_code=204)
-        else:
-            try:
-                response = await call_next(request)
-            except Exception as e:
-                print(f"Server Error (captured by middleware): {e}")
-                response = Response(content=str(e), status_code=500)
-        
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        return response
-
-app.add_middleware(ForceCorsMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- CONFIG ---
 # In production, use os.getenv("SUPABASE_URL")
