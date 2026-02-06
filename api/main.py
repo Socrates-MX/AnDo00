@@ -99,6 +99,34 @@ def calculate_file_hash(file_path: str) -> str:
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
+def consume_credit(org_id: str, amount: int, concept: str) -> bool:
+    """
+    Consumes tokens from the organization's wallet via Supabase RPC.
+    Returns True if consumption was successful, False otherwise.
+    """
+    if not supabase:
+        print("⚠️ Supabase not connected. Skipping credit consumption.")
+        return True
+    
+    if not org_id:
+        print("⚠️ No org_id provided for credit consumption.")
+        return False
+
+    try:
+        # Call the RPC function defined in supa_saas_schema.sql
+        res = supabase.rpc("consume_tokens", {
+            "p_org_id": org_id,
+            "p_amount": amount,
+            "p_app": "ANDO",
+            "p_concept": concept
+        }).execute()
+        
+        # res.data should be True if deducted, False if insufficient
+        return res.data is True
+    except Exception as e:
+        print(f"❌ Error during credit consumption: {e}")
+        return False
+
 def normalize_filename(filename: str) -> str:
     """Normaliza el nombre del archivo para comparaciones."""
     import re
@@ -498,6 +526,22 @@ async def upload_document(
         }
 
     # If new, proceed normally
+    if org_id:
+        # 🪙 [TOKEN CONSUMPTION]
+        print(f"🪙 Attempting to consume 1 token for Org: {org_id}")
+        deducted = consume_credit(org_id, 1, f"Análisis de documento: {filename_original}")
+        if not deducted:
+            print(f"🚫 Insufficient credits for Org: {org_id}")
+            raise HTTPException(
+                status_code=402, 
+                detail="Créditos insuficientes en su organización. Por favor recargue tokens en el Hub."
+            )
+        print(f"✅ Token consumed successfully for Org: {org_id}")
+    else:
+        # In strict SaaS mode, we should require org_id. 
+        # For now, we'll allow but warn if it's missing (dev mode fallback).
+        print("⚠️ Warning: Analysis starting without org_id. Credits not tracked.")
+
     background_tasks.add_task(run_analysis_task, task_id, file_path)
     
     return {
@@ -525,6 +569,17 @@ async def confirm_analysis(
     task["status"] = "pending"
     task["analysis_mode"] = req.action  # 'full_analysis' or 'changes_only'
     
+    # 🪙 [TOKEN CONSUMPTION ON CONFIRMATION]
+    org_id = task.get("org_id")
+    if org_id:
+        concept = f"Re-Análisis ({req.action}): {task.get('filename')}"
+        deducted = consume_credit(org_id, 1, concept)
+        if not deducted:
+            raise HTTPException(
+                status_code=402, 
+                detail="Créditos insuficientes para confirmar el análisis."
+            )
+
     background_tasks.add_task(run_analysis_task, req.task_id, task["file_path"])
     
     return {
