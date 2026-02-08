@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Form, Response
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Form, Response, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import sys
@@ -36,7 +36,17 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://getauditup.com",
+        "https://ando.getauditup.com",
+        "https://arc.getauditup.com",
+        "https://legado.getauditup.com",
+        "https://compliance.getauditup.com",
+        "https://getauditup-compliance-web.web.app",
+        "https://getauditup-compliance-web.firebaseapp.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,6 +67,46 @@ if SUPABASE_URL and SUPABASE_KEY:
         print(f"❌ Failed to init Supabase: {e}")
 else:
     print("⚠️ Supabase credentials not found. Persistence disabled.")
+
+
+# --- AUTHENTICATION DEPENDENCY ---
+async def verify_token(authorization: str = Header(None)):
+    """
+    Validates the Supabase JWT and retrieves the user's organization.
+    """
+    if not supabase:
+        # If in dev mode without Supabase, we skip check (not recommended for prod)
+        return {"id": "dev_user", "organization_id": None}
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401, 
+            detail="Se requiere un token de sesión válido (Bearer Token)."
+        )
+
+    token = authorization.split(" ")[1]
+    try:
+        # 1. Validate Token with Supabase
+        user_res = supabase.auth.get_user(token)
+        if not user_res or not user_res.user:
+            raise HTTPException(status_code=401, detail="Sesión expirada o inválida.")
+        
+        user_id = user_res.user.id
+        
+        # 2. Get Profile to find organization_id
+        # We use the existing supabase client (service role) to fetch the profile
+        profile_res = supabase.table("profiles").select("organization_id").eq("id", user_id).single().execute()
+        
+        if not profile_res.data:
+            raise HTTPException(status_code=403, detail="Usuario no tiene un perfil configurado.")
+            
+        return {
+            "id": user_id,
+            "organization_id": profile_res.data.get("organization_id")
+        }
+    except Exception as e:
+        print(f"🚨 Auth Error: {e}")
+        raise HTTPException(status_code=401, detail="Error en la validación de identidad.")
 
 
 # --- IN-MEMORY STATE (Replacing Redis for MVP) ---
@@ -127,6 +177,50 @@ def consume_credit(org_id: str, amount: int, concept: str) -> bool:
         print(f"❌ Error during credit consumption: {e}")
         return False
 
+# --- RATE LIMITING ---
+from collections import defaultdict
+import time
+
+# Simple in-memory rate limiter: max 5 requests per 60 seconds per organization
+ORG_RATE_LIMITS = defaultdict(list)
+MAX_REQUESTS_PER_WINDOW = 5
+WINDOW_SECONDS = 60
+
+def check_rate_limit(org_id: str):
+    if not org_id: return
+    
+    current_time = time.time()
+    # Clean up old timestamps
+    ORG_RATE_LIMITS[org_id] = [t for t in ORG_RATE_LIMITS[org_id] if current_time - t < WINDOW_SECONDS]
+    
+    if len(ORG_RATE_LIMITS[org_id]) >= MAX_REQUESTS_PER_WINDOW:
+        print(f"⚠️ Rate Limit Hit for Org: {org_id}")
+        raise HTTPException(
+            status_code=429, 
+            detail=f"Múltiples peticiones detectadas. Límite de {MAX_REQUESTS_PER_WINDOW} análisis por minuto alcanzado."
+        )
+    
+    ORG_RATE_LIMITS[org_id].append(current_time)
+
+def log_audit(org_id: str, user_id: str, action: str, doc_id: str = None, res_name: str = None, metadata: dict = {}):
+    """
+    Logs an action to the central audit_logs table via Supabase RPC.
+    """
+    if not supabase: return
+    try:
+        supabase.rpc("log_action_system", {
+            "p_org_id": org_id,
+            "p_user_id": user_id,
+            "p_action": action,
+            "p_app": "ANDO",
+            "p_doc_id": doc_id,
+            "p_res_name": res_name,
+            "p_metadata": metadata
+        }).execute()
+        print(f"📝 Audit Log: {action} for Org {org_id} by User {user_id}")
+    except Exception as e:
+        print(f"⚠️ Audit Log failed: {e}")
+
 def normalize_filename(filename: str) -> str:
     """Normaliza el nombre del archivo para comparaciones."""
     import re
@@ -184,6 +278,14 @@ async def run_analysis_task(task_id: str, file_path: str):
             
         pages_data, pdf_meta = extraction_result
         
+        # --- PHASE 1.5: PII SANITIZATION ---
+        try:
+            from utils.pii_sanitizer import PIISanitizer
+            print("🛡️ Applying PII Sanitization...")
+            pages_data = PIISanitizer.sanitize_pages_data(pages_data)
+        except Exception as pii_err:
+            print(f"⚠️ PII Sanitization failed (continuing with raw data): {pii_err}")
+
         # --- TOKEN TRACKING ---
         usage_stats = {
             "image_analysis": {"total_token_count": 0},
@@ -406,6 +508,16 @@ async def run_analysis_task(task_id: str, file_path: str):
 
             except Exception as db_err:
                 print(f"❌ Failed to save to Supabase: {db_err}")
+            
+            # --- LOG AUDIT (SUCCESS) ---
+            log_audit(
+                org_id=org_id,
+                user_id=task_data.get("user_id"),
+                action="ANALYZE_COMPLETED",
+                doc_id=new_doc_id if 'new_doc_id' in locals() else None,
+                res_name=filename,
+                metadata={"tokens": usage_stats.get("total_tokens", 0), "version": version_to_set}
+            )
         
         # FINAL STATUS UPDATE (after DB attempt)
         tasks_db[task_id]["status"] = "completed"
@@ -432,9 +544,23 @@ def health_check():
 async def upload_document(
     file: UploadFile = File(...), 
     background_tasks: BackgroundTasks = None,
-    org_id: Optional[str] = Form(None)
+    org_id: Optional[str] = Form(None),
+    auth_user: dict = Depends(verify_token)
 ):
     print(f"🔥 [ENDPOINT] Received upload request for file: {file.filename}", flush=True)
+
+    # --- RATE LIMIT CHECK ---
+    if org_id:
+        check_rate_limit(org_id)
+
+    # --- SECURITY CHECK ---
+    # Ensure the org_id sent in the form matches the user's authenticated organization
+    if auth_user["organization_id"] and org_id != str(auth_user["organization_id"]):
+        print(f"🚫 Security Breach Attempt: User {auth_user['id']} tried to upload for Org {org_id}")
+        raise HTTPException(
+            status_code=403, 
+            detail="No tiene permisos para subir documentos a esta organización."
+        )
     
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
@@ -508,11 +634,21 @@ async def upload_document(
         "filename": filename_original,
         "hash": file_hash,
         "org_id": org_id,
+        "user_id": auth_user["id"], # Store for audit logs
         "file_path": file_path,
         "scenario": scenario,
         "conflict_details": conflict_details,
         "normalized_name": normalized_name
     }
+
+    # LOG AUDIT (UPLOAD)
+    log_audit(
+        org_id=org_id,
+        user_id=auth_user["id"],
+        action="UPLOAD",
+        res_name=filename_original,
+        metadata={"scenario": scenario}
+    )
 
     if scenario != "NEW":
         return {
@@ -553,12 +689,17 @@ async def upload_document(
 @app.post("/analyze/confirm")
 async def confirm_analysis(
     req: AnalysisConfirmRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    auth_user: dict = Depends(verify_token)
 ):
     if req.task_id not in tasks_db:
         raise HTTPException(status_code=404, detail="Task not found")
     
     task = tasks_db[req.task_id]
+    
+    # SECURITY CHECK: Ensure user belongs to the task's organization
+    if auth_user["organization_id"] and str(task.get("org_id")) != str(auth_user["organization_id"]):
+         raise HTTPException(status_code=403, detail="No autorizado para confirmar este análisis.")
     if req.action == "cancel":
         if os.path.exists(task["file_path"]):
             os.remove(task["file_path"])
@@ -589,11 +730,15 @@ async def confirm_analysis(
     }
 
 @app.get("/analyze/{task_id}", response_model=AnalysisResult)
-def get_analysis_status(task_id: str):
+def get_analysis_status(task_id: str, auth_user: dict = Depends(verify_token)):
     if task_id not in tasks_db:
         raise HTTPException(status_code=404, detail="Task not found")
     
     task = tasks_db[task_id]
+
+    # SECURITY CHECK: Ensure user belongs to the task's organization
+    if auth_user["organization_id"] and str(task.get("org_id")) != str(auth_user["organization_id"]):
+         raise HTTPException(status_code=403, detail="No autorizado para ver el avance de este análisis.")
     
     response = {
         "task_id": task_id,
@@ -615,17 +760,22 @@ def get_analysis_status(task_id: str):
     return response
 
 @app.get("/documents")
-def list_documents(org_id: Optional[str] = None):
+def list_documents(org_id: Optional[str] = None, auth_user: dict = Depends(verify_token)):
     """
     List documents using official 'ando_documents' table.
+    Ensures users only see documents from their own organization.
     """
     if not supabase:
         raise HTTPException(status_code=503, detail="Database not available")
+
+    # SECURITY CHECK: Force filter by user's organization if provided, otherwise use theirs
+    effective_org_id = auth_user["organization_id"]
+    if org_id and str(org_id) != str(effective_org_id):
+        raise HTTPException(status_code=403, detail="No tiene permisos para ver documentos de otra organización.")
         
     try:
         query = supabase.table("ando_documents").select("*")
-        if org_id:
-            query = query.eq("organization_id", org_id)
+        query = query.eq("organization_id", effective_org_id)
         
         # Optionally filter by parent_id IS NULL to show only families, 
         # but User prompt implies showing all recent versions in the list.
@@ -640,7 +790,7 @@ def list_documents(org_id: Optional[str] = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/documents/{document_id}")
-def get_document_details(document_id: str):
+def get_document_details(document_id: str, auth_user: dict = Depends(verify_token)):
     """
     Fetch full analysis from 'ando_analysis_versions'.
     """
@@ -653,6 +803,10 @@ def get_document_details(document_id: str):
         if not doc_res.data:
             raise HTTPException(status_code=404, detail="Document not found")
         doc = doc_res.data[0]
+        
+        # SECURITY CHECK
+        if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para ver este documento.")
         
         # 2. Get latest analysis for this specific doc record
         analysis_res = supabase.table("ando_analysis_versions")\
@@ -680,7 +834,7 @@ def get_document_details(document_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/documents/{document_id}/report")
-def generate_report(document_id: str):
+def generate_report(document_id: str, auth_user: dict = Depends(verify_token)):
     """
     Generates a PDF report for the given document ID on the fly.
     """
@@ -693,6 +847,19 @@ def generate_report(document_id: str):
         if not doc_res.data:
             raise HTTPException(status_code=404, detail="Document not found")
         doc = doc_res.data[0]
+
+        # SECURITY CHECK
+        if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para descargar este reporte.")
+
+        # LOG AUDIT
+        log_audit(
+            org_id=doc["organization_id"],
+            user_id=auth_user["id"],
+            action="DOWNLOAD_REPORT",
+            doc_id=document_id,
+            res_name=doc["file_name"]
+        )
 
         # Fetch analysis from ando_analysis_versions
         analysis_res = supabase.table("ando_analysis_versions") \
@@ -775,7 +942,11 @@ def generate_report(document_id: str):
 
 
 @app.post("/documents/{document_id}/version")
-async def update_document_version(document_id: str, payload: Dict[str, Any]):
+async def update_document_version(
+    document_id: str, 
+    payload: Dict[str, Any],
+    auth_user: dict = Depends(verify_token)
+):
     """
     Creates a new version of the analysis for a document after manual edits.
     Uses 'ando_documents' and 'ando_analysis_versions'.
@@ -790,6 +961,10 @@ async def update_document_version(document_id: str, payload: Dict[str, Any]):
             raise HTTPException(status_code=404, detail="Document not found")
         
         current_doc = doc_res.data[0]
+
+        # SECURITY CHECK
+        if str(current_doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para editar este documento.")
         new_v = (current_doc.get("current_version") or 1) + 1
 
         # 2. Insert new analysis version record
@@ -813,6 +988,16 @@ async def update_document_version(document_id: str, payload: Dict[str, Any]):
             .eq("id", document_id) \
             .execute()
             
+        # LOG AUDIT
+        log_audit(
+            org_id=auth_user["organization_id"],
+            user_id=auth_user["id"],
+            action="SAVE_VERSION",
+            doc_id=document_id,
+            res_name=current_doc["file_name"],
+            metadata={"new_version": new_v}
+        )
+
         return {
             "status": "success",
             "message": f"Version updated to V{new_v}",
@@ -824,7 +1009,7 @@ async def update_document_version(document_id: str, payload: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/documents/{document_id}")
-def delete_document(document_id: str):
+def delete_document(document_id: str, auth_user: dict = Depends(verify_token)):
     """
     Deletes a document and all its associated analysis versions from official tables.
     """
@@ -832,10 +1017,28 @@ def delete_document(document_id: str):
         raise HTTPException(status_code=503, detail="Database not available")
 
     try:
-        # Delete versions first
+        # 1. Security Check before delete
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
+        if not doc_res.data:
+             raise HTTPException(status_code=404, detail="Document not found")
+        doc = doc_res.data[0]
+        
+        if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para eliminar este documento.")
+
+        # LOG AUDIT
+        log_audit(
+            org_id=doc["organization_id"],
+            user_id=auth_user["id"],
+            action="DELETE",
+            doc_id=document_id,
+            res_name=doc["file_name"]
+        )
+
+        # 2. Delete versions first
         supabase.table("ando_analysis_versions").delete().eq("document_id", document_id).execute()
         
-        # Delete master document
+        # 3. Delete master document
         res = supabase.table("ando_documents").delete().eq("id", document_id).execute()
         
         return {"status": "success", "message": f"Document {document_id} and history deleted"}
