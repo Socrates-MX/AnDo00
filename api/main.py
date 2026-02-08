@@ -45,10 +45,12 @@ app.add_middleware(
         "https://legado.getauditup.com",
         "https://compliance.getauditup.com",
         "https://getauditup-compliance-web.web.app",
-        "https://getauditup-compliance-web.firebaseapp.com"
+        "https://getauditup-compliance-web.firebaseapp.com",
+        "https://getauditupcompliance.web.app", 
+        "https://getauditupcompliance.firebaseapp.com"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -1013,36 +1015,52 @@ def delete_document(document_id: str, auth_user: dict = Depends(verify_token)):
     """
     Deletes a document and all its associated analysis versions from official tables.
     """
+    print(f"🗑️ [DELETE REQUEST] Deleting document: {document_id} by User: {auth_user['id']}")
+
     if not supabase:
+        print("❌ Database not connected")
         raise HTTPException(status_code=503, detail="Database not available")
 
     try:
         # 1. Security Check before delete
         doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
+        
         if not doc_res.data:
+             print(f"❌ Document {document_id} not found in DB")
              raise HTTPException(status_code=404, detail="Document not found")
+        
         doc = doc_res.data[0]
         
         if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             print(f"🚫 Unauthorized delete attempt by {auth_user['id']} (Org {auth_user['organization_id']}) on Doc {document_id} (Org {doc.get('organization_id')})")
              raise HTTPException(status_code=403, detail="No autorizado para eliminar este documento.")
 
         # LOG AUDIT
-        log_audit(
-            org_id=doc["organization_id"],
-            user_id=auth_user["id"],
-            action="DELETE",
-            doc_id=document_id,
-            res_name=doc["file_name"]
-        )
+        try:
+            log_audit(
+                org_id=doc["organization_id"],
+                user_id=auth_user["id"],
+                action="DELETE",
+                doc_id=document_id,
+                res_name=doc["file_name"]
+            )
+        except Exception as audit_err:
+            print(f"⚠️ Audit log failed (non-critical): {audit_err}")
 
-        # 2. Delete versions first
-        supabase.table("ando_analysis_versions").delete().eq("document_id", document_id).execute()
-        
+        # 2. Delete versions first (Manual Cascade just in case)
+        print(f"🗑️ Deleting versions for doc: {document_id}")
+        vers_res = supabase.table("ando_analysis_versions").delete().eq("document_id", document_id).execute()
+        print(f"✅ Versions deleted: {vers_res}")
+
         # 3. Delete master document
+        print(f"🗑️ Deleting master record: {document_id}")
         res = supabase.table("ando_documents").delete().eq("id", document_id).execute()
         
+        print(f"✅ Delete success for {document_id}: {res}")
         return {"status": "success", "message": f"Document {document_id} and history deleted"}
 
     except Exception as e:
-        print(f"Delete Error: {e}")
+        print(f"❌ Delete Error Trace: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
