@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     poppler-utils \
     tesseract-ocr \
-    libgl1-mesa-glx \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Actualizamos pip e instalamos las librerías de Python
