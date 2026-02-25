@@ -1010,6 +1010,51 @@ async def update_document_version(
         print(f"Update Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.patch("/documents/{document_id}/assignment")
+async def update_document_assignment(
+    document_id: str,
+    assignment: Dict[str, Any],
+    auth_user: dict = Depends(verify_token)
+):
+    """
+    Updates the legal_entity_id for a document.
+    """
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    legal_entity_id = assignment.get("legal_entity_id")
+    
+    try:
+        # 1. Security Check
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
+        if not doc_res.data:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        doc = doc_res.data[0]
+        if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para editar este documento.")
+
+        # 2. Update
+        res = supabase.table("ando_documents") \
+            .update({"legal_entity_id": legal_entity_id}) \
+            .eq("id", document_id) \
+            .execute()
+            
+        # LOG AUDIT
+        log_audit(
+            org_id=auth_user["organization_id"],
+            user_id=auth_user["id"],
+            action="ASSIGN_ENTITY",
+            doc_id=document_id,
+            res_name=doc["file_name"],
+            metadata={"legal_entity_id": legal_entity_id}
+        )
+
+        return {"status": "success", "message": "Document assignment updated"}
+    except Exception as e:
+        print(f"Assignment Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/documents/{document_id}")
 def delete_document(document_id: str, auth_user: dict = Depends(verify_token)):
     """
