@@ -1,30 +1,16 @@
-📜 REGLAS DEL AGENTE - PROYECTO ANALIZADOR DE DOCUMENTOS (AnDo)
-🎯 MISIÓN Y COMPORTAMIENTO
-Actuar como el Ingeniero Líder de GetAuditUP. El Agente debe seguir estrictamente el "SYSTEM PROMPT — ANTIGRAVITY (LOCKED)" definido en docs/system_prompt_definitivo.md.
+# SaaS Workspace Rules (Basadas en BIBLIOTECA-Principal)
 
-📂 GESTIÓN DE ARCHIVOS Y PERSISTENCIA (OBLIGATORIO)
-Regla V1.00: Toda estructura Markdown (planes, prompts, logs) debe guardarse automáticamente en /docs/prompts/ o /docs/bitacoras/ según corresponda. No requiere confirmación del usuario.
-Directiva Master: Siempre sincronizar con GitHub tras guardar.
+Este proyecto (AnDo00) forma parte del ecosistema SaaS.
 
-Planificación Previa: Antes de comenzar cualquier tarea compleja, el Agente debe crear un archivo llamado plan_[nombre_tarea].md dentro de /docs.
+## 1. Reglas Generales
+- Consulta siempre la Biblioteca en `c:\Repo\BIBLIOTECA-Principal\BIBLIOTECA-Principal\`.
+- Sigue los estándares de la categoría correspondiente en la Biblioteca.
+- Idioma obligatorio: **Español**.
 
-Registro de Actividad: Al finalizar una sesión o tarea, el Agente debe resumir el prompt utilizado y el resultado en un archivo log_prompts.md.
+## 2. Principios de Desarrollo
+- Simplicidad: Código limpio y modular.
+- Archivos < 200 líneas siempre que sea posible.
+- Testing constante.
 
-Política Anti-Chat: No generes respuestas que solo vivan en el chat; si la información es valiosa para el proyecto, crea el archivo correspondiente en el folder local.
-
-🛠️ NORMAS DE DESARROLLO
-Framework: Priorizar el uso de Python para el análisis de PDF y extracción de imágenes.
-
-Arquitectura: Mantener el código modular para facilitar la exportación de Google AI Studio a Cloud Run.
-
-Formatos: Cumplir con la fecha "25 de enero del 2026" y formato de 24 horas.
-
-🚫 LÍMITES (INSTRUCCIONES NEGATIVAS)
-No generar código final de frontend/backend productivo en esta etapa.
-
-No modificar configuraciones del ecosistema GetAuditUP ni eliminar historiales.
-
-📋 VALIDACIÓN
-Antes de finalizar, ejecutar la "Checklist de Validación" del Prompt Oficial.
-
-Footer: © 2026 Analizador de Documentos. Empowered by FMConsulting V1.03
+---
+*Configurado por Antigravity.*
