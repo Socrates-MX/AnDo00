@@ -8,3 +8,21 @@ venv/
 .env
 .DS_Store
 data/
+
+# Secrets and Credentials
+.env*
+*.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!manifest.json
+!composer.json
+!composer.lock
+!vercel.json
+!firebase.json
+!firestore.indexes.json
+!firestore.rules.json
+!storage.rules.json
+gcp-key.json
+*.key
+*.pem
