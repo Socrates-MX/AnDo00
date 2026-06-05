@@ -1,5 +1,5 @@
 pypdf==5.1.0
-google-generativeai
+openai
 python-dotenv
 Pillow
 supabase

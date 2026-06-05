@@ -1,8 +1,6 @@
-
 import os
 import json
-import google.generativeai as genai
-from utils.ai_retry import call_with_retry
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,9 +11,9 @@ def analyze_raw_congruence(raw_consolidation_json):
     (Texto plano + Interpretaciones de Imágenes), sin estructuras intermedias.
     """
     print("--- STARTING RAW CONGRUENCE ANALYSIS ---", flush=True)
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("❌ ERROR: GOOGLE_API_KEY missing in environment")
+        print("❌ ERROR: OPENAI_API_KEY missing in environment")
         return {
             "raw_matriz": [],
             "raw_desviaciones": [],
@@ -26,10 +24,8 @@ def analyze_raw_congruence(raw_consolidation_json):
             "error": "Missing API Key"
         }
     
-    print("✅ API Key found. Configuring Gemini...")
-    genai.configure(api_key=api_key)
-    generation_config = {"response_mime_type": "application/json"}
-    model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
+    print("✅ API Key found. Configuring OpenAI...")
+    client = OpenAI(api_key=api_key)
     
     # Construir el contexto RAW puro estructurado
     # Usamos directamente la estructura "Consolidación de Contenido (RAW)" como fuente
@@ -82,8 +78,14 @@ def analyze_raw_congruence(raw_consolidation_json):
     """
 
     try:
-        response = call_with_retry(model.generate_content, prompt)
-        clean = response.text.replace("```json", "").replace("```", "").strip()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            response_format={ "type": "json_object" }
+        )
+        clean = response.choices[0].message.content
         parsed = json.loads(clean)
         
         # Estructura por defecto para asegurar compatibilidad con Frontend
@@ -97,12 +99,12 @@ def analyze_raw_congruence(raw_consolidation_json):
         }
         
         # Capture usage metadata
-        usage = getattr(response, 'usage_metadata', None)
+        usage = response.usage
         if usage:
             parsed["usage"] = {
-                "prompt_token_count": usage.prompt_token_count,
-                "candidates_token_count": usage.candidates_token_count,
-                "total_token_count": usage.total_token_count
+                "prompt_token_count": usage.prompt_tokens,
+                "candidates_token_count": usage.completion_tokens,
+                "total_token_count": usage.total_tokens
             }
 
         if not isinstance(parsed, dict):

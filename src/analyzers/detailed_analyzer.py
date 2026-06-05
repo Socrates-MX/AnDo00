@@ -1,20 +1,18 @@
 from analyzers import image_analyzer
-import google.generativeai as genai
-from utils.ai_retry import call_with_retry
+from openai import OpenAI
 import os
+import json
 
 def extract_detailed_analysis(pages_data, file_path=None):
     """
-    Generates the Detailed Analysis report.
+    Generates the Detailed Analysis report using OpenAI.
     Uses consolidated truth (Text + AI Interpreted Images).
-    Follows Official Prompt V1.02 - Ajuste Clasificación Tipo de Firma.
     """
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key or api_key == "YOUR_API_KEY_HERE":
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
         return None, {}
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    client = OpenAI(api_key=api_key)
 
     # Consolidate text data and image descriptions for context (PRIMARY SOURCE)
     full_document_context = ""
@@ -52,7 +50,6 @@ def extract_detailed_analysis(pages_data, file_path=None):
        - ELABORADO POR: Busca "Elaborado por", "Autor", "Preparado por".
     3. AUDITORÍA DE ZONA DE PODER (Header): Los primeros 250 píxeles verticales de la Página 1 se declaran "Zona de Datos Maestros". Tienes prohibido leer texto fluido aquí; debes buscar únicamente pares Etiqueta -> Valor.
     4. VALIDACIÓN CRUZADA (OCR vs. Texto Directo): Si el flujo de texto devuelve una cadena incoherente (etiquetas mezcladas por el logo), ignora el orden del texto y reconstruye la tabla basándote en la posición física de las palabras en la hoja.
-    5. REDUNDANCIA VISUAL: Si los datos maestros están en una imagen compuesta con el LOGO (ej. Enerser), no te confundas. Separa el elemento gráfico del dato alfanumérico. Los datos están ahí, búscalos con rigor forense.
 
     CRÍTICO - SOBERANÍA DE DATOS:
     1. Si en la 'GUÍA DE DATOS PREVIOS' ya existe un [HALLAZGO VISUAL PREVIO] que describa un DIAGRAMA DE FLUJO, UTILÍZALO para el campo 'interpretacion_diagrama_flujo'. No intentes re-interpretarlo, sintetiza lo que ya se detectó.
@@ -97,7 +94,7 @@ def extract_detailed_analysis(pages_data, file_path=None):
       "objetivo_completo": "...",
       "alcance_completo": "...",
       "interpretacion_diagrama_flujo": "SÍNTESIS MAESTRA de los diagramas descritos en la guía previa.",
-      "mermaid_graph": "graph TD;\nStart((Inicio)) --> B[Paso 1: ...];\n... (Sintaxis completa y válida de MermaidJS que represente el flujo operativo)",
+      "mermaid_graph": "graph TD;\\nStart((Inicio)) --> B[Paso 1: ...];\\n... (Sintaxis completa y válida de MermaidJS que represente el flujo operativo)",
       "politicas": {{
         "texto_completo": "...",
         "identificacion_participantes_ia": ["..."],
@@ -110,42 +107,28 @@ def extract_detailed_analysis(pages_data, file_path=None):
     }}
     """
 
-    prompt_parts = [main_prompt]
-    
-    # MULTIMODAL SOURCE: 
-    # If file_path is provided, we upload it to Gemini to allow visual inspection
-    # of Page 1 Master Data (Rule 5: Redundancy).
-    if file_path and os.path.exists(file_path):
-        try:
-            # Upload file to Gemini API (File API)
-            doc_file = genai.upload_file(path=file_path, display_name="Documento Auditoría")
-            prompt_parts.append(doc_file)
-            
-            # Additional instruction for multimodality
-            vision_instruction = """
-            ADJUNTO: Tienes el archivo original disponible. 
-            PARA LA HOJA 1: Ignora el ruido del OCR si es necesario. Observa la IMAGEN DE LA PRIMERA PÁGINA para extraer con precisión los Datos Generales (Tipo, Revisión, Fecha, Título, Elaborador).
-            Busca la tabla de carátula, incluso si está pegada al logo de la empresa.
-            """
-            prompt_parts.append(vision_instruction)
-        except Exception as vision_err:
-            print(f"Vision analysis unavailable (upload failed): {vision_err}")
-
     try:
-        response = call_with_retry(model.generate_content, prompt_parts)
-        clean_response = response.text.replace("```json", "").replace("```", "").strip()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": main_prompt}
+            ],
+            response_format={ "type": "json_object" }
+        )
+        
+        clean_response = response.choices[0].message.content
         
         # Capture usage metadata
-        usage = getattr(response, 'usage_metadata', None)
+        usage = response.usage
         usage_data = {}
         if usage:
             usage_data = {
-                "prompt_token_count": usage.prompt_token_count,
-                "candidates_token_count": usage.candidates_token_count,
-                "total_token_count": usage.total_token_count
+                "prompt_token_count": usage.prompt_tokens,
+                "candidates_token_count": usage.completion_tokens,
+                "total_token_count": usage.total_tokens
             }
         
         return clean_response, usage_data
     except Exception as e:
-        print(f"🚨 Gemini Detailed Analysis Error: {e}")
+        print(f"🚨 OpenAI Detailed Analysis Error: {e}")
         raise e

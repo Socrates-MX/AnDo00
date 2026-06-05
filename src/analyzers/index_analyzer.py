@@ -1,7 +1,6 @@
 import os
 import json
-import google.generativeai as genai
-from utils.ai_retry import call_with_retry
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,17 +10,16 @@ def extract_index_and_congruence(pages_data):
     Analyzes the full document text to build a Smart Index and 
     evaluate the semantic congruence between titles and content.
     """
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key or api_key == "YOUR_API_KEY_HERE":
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
         return None
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    client = OpenAI(api_key=api_key)
 
     # Prepare context for the AI
     full_context = ""
     for p in pages_data:
-        full_context += f"--- PÁGINA {p['page_number']} ---\n{p['text_content']}\n\n"
+        full_context += f"--- PÁGINA {p['page_number']} ---\\n{p['text_content']}\\n\\n"
 
     prompt = f"""
     Eres un auditor experto en análisis documental. Tu tarea es generar un ÍNDICE INTELIGENTE del documento y evaluar su CONGRUENCIA.
@@ -50,17 +48,24 @@ def extract_index_and_congruence(pages_data):
     """
 
     try:
-        response = call_with_retry(model.generate_content, prompt)
-        clean_response = response.text.replace("```json", "").replace("```", "").strip()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            response_format={ "type": "json_object" }
+        )
+        
+        clean_response = response.choices[0].message.content
         parsed = json.loads(clean_response)
         
         # Capture usage metadata
-        usage = getattr(response, 'usage_metadata', None)
+        usage = response.usage
         if usage:
             parsed["usage"] = {
-                "prompt_token_count": usage.prompt_token_count,
-                "candidates_token_count": usage.candidates_token_count,
-                "total_token_count": usage.total_token_count
+                "prompt_token_count": usage.prompt_tokens,
+                "candidates_token_count": usage.completion_tokens,
+                "total_token_count": usage.total_tokens
             }
             
         return parsed

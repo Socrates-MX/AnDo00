@@ -65,7 +65,7 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="Solo PDF.")
     
     task_id = str(uuid.uuid4())
-    temp_dir = os.path.join(os.path.dirname(__file__), '..', 'temp_uploads')
+    temp_dir = '/tmp'
     os.makedirs(temp_dir, exist_ok=True)
     file_path = os.path.join(temp_dir, f"{task_id}_{file.filename}")
     

@@ -1,22 +1,18 @@
 import os
 import json
-import google.generativeai as genai
-from utils.ai_retry import call_with_retry
-from dotenv import load_dotenv
-
-load_dotenv()
+from openai import OpenAI
 
 def analyze_document_congruence(detailed_report, pages_data):
     """
     Performs a cross-sectional congruence analysis based on the Official IA Prompt.
     Compares Title, Objective, Scope, Diagram, Policies, Procedures, and Signatories.
     """
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key or api_key == "YOUR_API_KEY_HERE":
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        print("Missing OPENAI_API_KEY")
         return None
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    client = OpenAI(api_key=api_key)
 
     # Prepare data summary from detailed report
     doc_main = detailed_report.get("contenido_principal", {})
@@ -69,17 +65,24 @@ def analyze_document_congruence(detailed_report, pages_data):
     """
 
     try:
-        response = call_with_retry(model.generate_content, prompt)
-        clean_response = response.text.replace("```json", "").replace("```", "").strip()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            response_format={ "type": "json_object" }
+        )
+        
+        clean_response = response.choices[0].message.content
         parsed = json.loads(clean_response)
         
         # Capture usage metadata
-        usage = getattr(response, 'usage_metadata', None)
+        usage = response.usage
         if usage:
             parsed["usage"] = {
-                "prompt_token_count": usage.prompt_token_count,
-                "candidates_token_count": usage.candidates_token_count,
-                "total_token_count": usage.total_token_count
+                "prompt_token_count": usage.prompt_tokens,
+                "candidates_token_count": usage.completion_tokens,
+                "total_token_count": usage.total_tokens
             }
             
         return parsed
