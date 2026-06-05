@@ -15,68 +15,12 @@ def analyze_images_on_page(page_content):
     return []
 
 def generate_image_description(image_bytes):
-    """
-    Sends image bytes to OpenAI for real description.
-    """
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return "[ERROR] API Key no configurada en .env.", {}
     
-    client = OpenAI(api_key=api_key)
-
-    try:
-        # Detect MIME type using PIL
-        img = Image.open(io.BytesIO(image_bytes))
-        mime_type = Image.MIME.get(img.format, "image/png")
-        
-        base64_image = base64.b64encode(image_bytes).decode('utf-8')
-        image_url = f"data:{mime_type};base64,{base64_image}"
-        
-        prompt_text = (
-            "Analiza esta imagen con rigor forense para auditoría.\\n"
-            "ESCRUTINIO DE TIPO:\\n"
-            "1. Si es LOGOTIPO, MARCA DE AGUA o elemento decorativo: Responde EXACTAMENTE: [SKIP]\\n"
-            "2. Si es un DIAGRAMA DE FLUJO, PROCESO o TABLA DE DECISIÓN (CRÍTICO):\\n"
-            "   Debes transcribir el flujo COMPLETO a texto lógico estructurado.\\n"
-            "   FORMATO DE SALIDA:\\n"
-            "   **TIPO:** [Diagrama de Flujo / Tabla / Gráfico]\\n"
-            "   **PROCESO:** [Nombre inferido del proceso]\\n"
-            "   **ROLES VISIBLES:** [Lista de carriles/actores si existen]\\n"
-            "   **FLUJO LÓGICO PASO A PASO:**\\n"
-            "   1. [Inicio] Descripción...\\n"
-            "   2. [Actividad] ...\\n"
-            "   3. [Decisión] ¿Condición? (Si -> Paso X, No -> Paso Y)\\n"
-            "   ...\\n"
-            "   [Fin] Conclusión.\\n"
-            "   Asegura que NINGÚN paso visible sea omitido."
-        )
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt_text},
-                        {"type": "image_url", "image_url": {"url": image_url}}
-                    ]
-                }
-            ]
-        )
-        
-        # Capture usage data
-        usage = response.usage
-        usage_data = {}
-        if usage:
-            usage_data = {
-                "prompt_token_count": usage.prompt_tokens,
-                "candidates_token_count": usage.completion_tokens,
-                "total_token_count": usage.total_tokens
-            }
-            
-        return response.choices[0].message.content.strip(), usage_data
-    except Exception as e:
-        return f"[ERROR] Falló OpenAI (Imagen): {str(e)}", {}
+    # gpt-3.5-turbo no soporta Vision, por lo tanto saltamos el análisis de imágenes
+    return "[SKIP] Análisis visual deshabilitado (Modelo gpt-3.5-turbo no soporta Vision)", {}
 
 def generate_text_interpretation(text_content):
     """
@@ -101,7 +45,7 @@ def generate_text_interpretation(text_content):
         )
         
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "user", "content": prompt}
             ]

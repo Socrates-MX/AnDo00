@@ -109,9 +109,40 @@ async def upload_document(
     if scenario == "NEW" and org_id:
         if not consume_credit(org_id, token_cost, f"Análisis ({num_pages} págs): {file.filename}"):
             raise HTTPException(status_code=402, detail="Créditos insuficientes.")
-        background_tasks.add_task(run_analysis_task, task_id, file_path)
+        await run_analysis_task(task_id, file_path)
     
-    return {"task_id": task_id, "status": tasks_db[task_id]["status"], "message": warning_msg if scenario == "NEW" else "Procesando", "scenario": scenario}
+    return {
+        "task_id": task_id, 
+        "status": tasks_db[task_id]["status"], 
+        "message": warning_msg if scenario == "NEW" else "Procesando", 
+        "scenario": scenario,
+        "existing_id": conflict_details["id"] if conflict_details else None,
+        "version": conflict_details["current_version"] if conflict_details else None,
+        "conflict_details": conflict_details,
+        "data": tasks_db[task_id].get("result")
+    }
+
+@app.post("/analyze/confirm")
+async def confirm_analysis(req: AnalysisConfirmRequest, org_id: Optional[str] = Form(None)):
+    task_id = req.task_id
+    if task_id not in tasks_db:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if req.action == "cancel":
+        tasks_db[task_id]["status"] = "cancelled"
+        return {"status": "cancelled"}
+    
+    if req.action == "full_analysis":
+        tasks_db[task_id]["status"] = "processing"
+        file_path = tasks_db[task_id]["file_path"]
+        await run_analysis_task(task_id, file_path)
+        return {
+            "task_id": task_id,
+            "status": tasks_db[task_id]["status"],
+            "data": tasks_db[task_id].get("result")
+        }
+    
+    return {"status": "unknown_action"}
 
 @app.get("/analyze/{task_id}")
 def get_status(task_id: str, auth_user: dict = Depends(verify_token)):
