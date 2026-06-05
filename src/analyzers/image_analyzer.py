@@ -31,7 +31,7 @@ def generate_image_description(image_bytes):
         img = Image.open(io.BytesIO(image_bytes))
         mime_type = Image.MIME.get(img.format, "image/png")
         
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         image_part = {
             "mime_type": mime_type,
@@ -86,7 +86,7 @@ def generate_text_interpretation(text_content):
         return "No hay suficiente texto para interpretar.", {}
 
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = call_with_retry(model.generate_content, [
             "Analiza el siguiente texto extraído de una página de un documento corporativo.\n"
             "TAREA: Proporciona una INTERPRETACIÓN ejecutiva y concreta de este contenido.\n"

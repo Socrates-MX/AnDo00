@@ -79,8 +79,8 @@ async def run_analysis_task(task_id: str, file_path: str):
         # Phase 3: Detailed
         update_task_progress(task_id, 3, "Informe estructural...")
         detailed_json_raw, _ = detailed_analyzer.extract_detailed_analysis(pages_data, file_path=file_path)
+        print(f"RAW DETAILED JSON OUTPUT: {repr(detailed_json_raw)}")
         detailed_report = json.loads(detailed_json_raw)
-
         # Phase 4 & 5
         update_task_progress(task_id, 4, "Congruencia...")
         index_card = report_generator.generate_index_card(pages_data)
@@ -100,6 +100,9 @@ async def run_analysis_task(task_id: str, file_path: str):
         update_task_progress(task_id, 6, "Completado")
 
     except Exception as e:
+        print(f"🚨 Background Task Error: {e}")
+        import traceback
+        traceback.print_exc()
         tasks_db[task_id]["status"] = "failed"
         tasks_db[task_id]["error"] = str(e)
     finally:

@@ -22,7 +22,15 @@ app = FastAPI(title="AnDo API", version="1.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Simplified for demo, keep specific in prod
+    allow_origins=[
+        "https://getauditup.com",
+        "https://app.getauditup.com",
+        "https://www.getauditup.com",
+        "https://ando.getauditup.com",
+        "http://localhost:3000",
+        "http://localhost:5173"
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,6 +71,23 @@ async def upload_document(
     
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+        
+    # --- Control de Páginas y Facturación Dinámica ---
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(file_path)
+        num_pages = len(reader.pages)
+        if num_pages > 20:
+            os.remove(file_path)
+            raise HTTPException(status_code=400, detail="El documento excede el límite permitido de 20 páginas por razones de rentabilidad y seguridad.")
+        
+        token_cost = 3 if num_pages > 10 else 1
+        warning_msg = "Procesando. (Aviso: Documento >10 págs, consume 3 tokens)." if num_pages > 10 else "Procesando"
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        os.remove(file_path)
+        raise HTTPException(status_code=400, detail="Error al validar estructura del PDF.")
+    # -------------------------------------------------
     
     file_hash = calculate_file_hash(file_path)
     scenario = "NEW"
@@ -82,11 +107,11 @@ async def upload_document(
     }
 
     if scenario == "NEW" and org_id:
-        if not consume_credit(org_id, 1, f"Análisis: {file.filename}"):
+        if not consume_credit(org_id, token_cost, f"Análisis ({num_pages} págs): {file.filename}"):
             raise HTTPException(status_code=402, detail="Créditos insuficientes.")
         background_tasks.add_task(run_analysis_task, task_id, file_path)
     
-    return {"task_id": task_id, "status": tasks_db[task_id]["status"], "message": "Procesando", "scenario": scenario}
+    return {"task_id": task_id, "status": tasks_db[task_id]["status"], "message": warning_msg if scenario == "NEW" else "Procesando", "scenario": scenario}
 
 @app.get("/analyze/{task_id}")
 def get_status(task_id: str, auth_user: dict = Depends(verify_token)):

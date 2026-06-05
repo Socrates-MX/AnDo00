@@ -29,7 +29,7 @@ def analyze_raw_congruence(raw_consolidation_json):
     print("✅ API Key found. Configuring Gemini...")
     genai.configure(api_key=api_key)
     generation_config = {"response_mime_type": "application/json"}
-    model = genai.GenerativeModel('gemini-2.0-flash', generation_config=generation_config)
+    model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
     
     # Construir el contexto RAW puro estructurado
     # Usamos directamente la estructura "Consolidación de Contenido (RAW)" como fuente

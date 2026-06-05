@@ -12,7 +12,7 @@ def test_multimodal_pdf(file_path):
     sample_file = genai.upload_file(path=file_path, display_name="Auditoria")
     print(f"Archivo subido: {sample_file.uri}")
     
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content([
         sample_file,
         "Observa la tabla 'REVISADO Y APROBADO ELECTRÓNICAMENTE' en la primera página. "
