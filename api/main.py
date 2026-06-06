@@ -159,17 +159,14 @@ async def upload_document(
              
         pages_data, pdf_meta = extraction_result
         
-        # Serialize pages for Supabase (Encode bytes to base64 string)
+        # Serialize pages for Supabase (Drop image bytes to prevent 413 Payload Too Large)
         serialized_pages = []
         for p in pages_data:
             clean_imgs = []
             for i_idx, img in enumerate(p.get("images", [])):
                 img_copy = img.copy()
-                img_copy["description"] = "[SKIP] Deferred to AI"
-                if "image_bytes" in img_copy and img_copy["image_bytes"]:
-                    img_copy["image_bytes"] = base64.b64encode(img_copy["image_bytes"]).decode('utf-8')
-                else:
-                    img_copy.pop("image_bytes", None)
+                img_copy["description"] = "[SKIP] Análisis visual deshabilitado"
+                img_copy.pop("image_bytes", None)
                 clean_imgs.append(img_copy)
             pc = p.copy()
             pc["images"] = clean_imgs
@@ -193,6 +190,10 @@ async def upload_document(
         }
         
         res_doc = supabase.table("ando_documents").insert(doc_data).execute()
+        if not res_doc.data:
+            os.remove(file_path)
+            raise HTTPException(status_code=500, detail="Fallo al guardar el documento en la base de datos.")
+            
         doc_db_id = res_doc.data[0]['id']
         
         # Save payload
@@ -215,8 +216,8 @@ async def upload_document(
             "status": status_to_save if status_to_save == "pending_decision" else "pending", 
             "message": warning_msg if scenario == "NEW" else "Procesando", 
             "scenario": scenario,
-            "existing_id": conflict_details["id"] if conflict_details else None,
-            "version": conflict_details["current_version"] if conflict_details else None,
+            "existing_id": conflict_details.get("id") if conflict_details else None,
+            "version": str(conflict_details.get("current_version", "1")) if conflict_details else None,
             "conflict_details": conflict_details,
             "data": None
         }
@@ -278,11 +279,7 @@ def get_status(task_id: str, auth_user: dict = Depends(verify_token)):
             pages_data = payload["pages"]
             pdf_meta = payload["metadata"]
             
-            # Reconstruct image_bytes
-            for p in pages_data:
-                for img in p.get("images", []):
-                    if "image_bytes" in img and isinstance(img["image_bytes"], str):
-                        img["image_bytes"] = base64.b64decode(img["image_bytes"])
+            # Image bytes were dropped in Phase 1, no need to reconstruct
             
             detailed_json_raw, detailed_usage = detailed_analyzer.extract_detailed_analysis(pages_data)
             detailed_report = json.loads(detailed_json_raw)
