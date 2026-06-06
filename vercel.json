@@ -1,20 +1,8 @@
 {
-  "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "api/main.py",
-      "use": "@vercel/python"
+      "source": "/(.*)",
+      "destination": "/api/main"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/main.py"
-    }
-  ],
-  "functions": {
-    "api/main.py": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }
