@@ -118,7 +118,7 @@ async def run_analysis_task(task_id: str, file_path: str):
                     "page_count": len(serialized_pages),
                     "status": "extracted"
                 }
-                res_doc = supabase.table("ando_documents").upsert(doc_data, on_conflict="file_hash").execute()
+                res_doc = supabase.table("ando_documents").insert(doc_data).execute()
                 
                 if res_doc.data:
                     doc_db_id = res_doc.data[0]['id']
