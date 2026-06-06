@@ -82,21 +82,14 @@ async def run_analysis_task(task_id: str, file_path: str):
         detailed_json_raw, detailed_usage = detailed_analyzer.extract_detailed_analysis(pages_data, file_path=file_path)
         print(f"RAW DETAILED JSON OUTPUT: {repr(detailed_json_raw)}")
         detailed_report = json.loads(detailed_json_raw)
-        # Phase 4 & 5
-        update_task_progress(task_id, 4, "Congruencia...")
-        index_card = report_generator.generate_index_card(pages_data)
-        congruence_report = congruence_analyzer.analyze_document_congruence(detailed_report, pages_data)
+        # Phase 4 & 5 (Omitidos en Vercel por timeout, delegado a ARC00)
+        update_task_progress(task_id, 4, "Finalizando Extracción (Omitiendo Cruces en Vercel)...")
+        congruence_report = {}
+        process_cross_report = {}
+        index_card = {}
         
-        update_task_progress(task_id, 5, "Cruce...")
-        process_cross_report = process_cross_analyzer.analyze_process_crossing(detailed_report, pages_data)
-
         # Token usage aggregation
         total_tokens = detailed_usage.get("total_token_count", 0) if detailed_usage else 0
-        if isinstance(congruence_report, dict):
-            total_tokens += congruence_report.get("usage", {}).get("total_token_count", 0)
-        if isinstance(process_cross_report, dict):
-            total_tokens += process_cross_report.get("usage", {}).get("total_token_count", 0)
-            
         usage_stats = {
             "total_tokens": total_tokens
         }
@@ -108,6 +101,30 @@ async def run_analysis_task(task_id: str, file_path: str):
             "index_card": index_card, "page_count": len(serialized_pages),
             "usage_stats": usage_stats
         }
+
+        # PERSISTENCE (Supabase)
+        doc_db_id = None
+        if supabase:
+            try:
+                org_id = tasks_db[task_id].get("org_id")
+                filename = tasks_db[task_id].get("filename")
+                file_hash = tasks_db[task_id].get("hash")
+                doc_data = {
+                    "nombre_archivo": filename,
+                    "hash_documento": file_hash,
+                    "numero_paginas": len(serialized_pages),
+                    "estado": "analizado",
+                    "version_actual": 1,
+                    "payload_completo": final_result,
+                    "organization_id": org_id
+                }
+                res = supabase.table("ando_documents").insert(doc_data).execute()
+                if res.data:
+                    doc_db_id = res.data[0]['id']
+            except Exception as e:
+                print(f"Supabase Insert Error: {e}")
+
+        final_result["document_db_id"] = doc_db_id
         tasks_db[task_id]["result"] = final_result
         tasks_db[task_id]["status"] = "completed"
         update_task_progress(task_id, 6, "Completado")
