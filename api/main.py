@@ -14,6 +14,7 @@ from core.supabase_client import supabase
 from core.auth import verify_token
 from core.utils import check_rate_limit, calculate_file_hash, normalize_filename
 from core.tasks import consume_credit, log_audit
+from analyzers import pdf_analyzer, detailed_analyzer
 
 load_dotenv()
 
@@ -142,7 +143,6 @@ async def upload_document(
             conflict_details = docs[0]
             
         # VERCEL STATELESS REFACTOR: Run Phase 1 (PDF OCR) inline!
-        from analyzers import pdf_analyzer
         config = {
             "selected_pages": [int(x.strip()) for x in selected_pages.split(",") if x.strip()] if selected_pages else None,
             "extract_images": extract_images.lower() == "true",
@@ -222,7 +222,7 @@ async def upload_document(
         import traceback
         trace_str = traceback.format_exc()
         print(f"🚨 Unhandled Error in upload_document: {trace_str}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=trace_str)
 
 @app.post("/analyze/confirm")
 async def confirm_analysis(req: AnalysisConfirmRequest, org_id: Optional[str] = Form(None)):
@@ -281,7 +281,6 @@ def get_status(task_id: str, auth_user: dict = Depends(verify_token)):
                     if "image_bytes" in img and isinstance(img["image_bytes"], str):
                         img["image_bytes"] = base64.b64decode(img["image_bytes"])
             
-            from analyzers import detailed_analyzer
             detailed_json_raw, detailed_usage = detailed_analyzer.extract_detailed_analysis(pages_data)
             detailed_report = json.loads(detailed_json_raw)
             

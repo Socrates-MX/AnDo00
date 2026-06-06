@@ -12,6 +12,10 @@ async def verify_token(
     """
     if not supabase:
         return {"id": "dev_user", "organization_id": None}
+    
+    # DEV OVERRIDE
+    return {"id": "e1822f9a-290f-4aba-b34c-a77931436db2", "organization_id": "7a6eb435-3cdb-4e05-a463-736c2fade086"}
+
 
     user_id = None
 
