@@ -26,3 +26,4 @@ data/
 gcp-key.json
 *.key
 *.pem
+.vercel

@@ -19,8 +19,8 @@ def generate_image_description(image_bytes):
     if not api_key:
         return "[ERROR] API Key no configurada en .env.", {}
     
-    # gpt-3.5-turbo no soporta Vision, por lo tanto saltamos el análisis de imágenes
-    return "[SKIP] Análisis visual deshabilitado (Modelo gpt-3.5-turbo no soporta Vision)", {}
+    # gpt-4o-mini no soporta Vision, por lo tanto saltamos el análisis de imágenes
+    return "[SKIP] Análisis visual deshabilitado (Modelo gpt-4o-mini no soporta Vision)", {}
 
 def generate_text_interpretation(text_content):
     """
@@ -45,7 +45,7 @@ def generate_text_interpretation(text_content):
         )
         
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "user", "content": prompt}
             ]

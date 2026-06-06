@@ -121,7 +121,7 @@ async def upload_document(
                     client = AsyncOpenAI()
                     prompt = f"El usuario subió un documento PDF llamado '{file.filename}'. Hemos detectado que es un documento escaneado (sin texto digital o es una pura imagen). Redacta un mensaje breve y amable (máximo 2 párrafos) dirigido al usuario final. Explícale que el documento no se puede analizar en este momento porque necesita que le apliquemos Reconocimiento Óptico de Caracteres (OCR). Menciona de forma inteligente de qué trata probablemente el documento basándote exclusivamente en su nombre de archivo: '{file.filename}'."
                     completion = await client.chat.completions.create(
-                        model="gpt-3.5-turbo",
+                        model="gpt-4o-mini",
                         messages=[{"role": "user", "content": prompt}]
                     )
                     ocr_msg = completion.choices[0].message.content
