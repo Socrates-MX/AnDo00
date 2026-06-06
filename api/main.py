@@ -84,100 +84,108 @@ async def upload_document(
     force_ocr: Optional[str] = Form("false"),
     auth_user: dict = Depends(verify_token)
 ):
-    if org_id: check_rate_limit(org_id)
-    if auth_user["organization_id"] and org_id != str(auth_user["organization_id"]):
-        raise HTTPException(status_code=403, detail="No autorizado.")
-    
-    if not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Solo PDF.")
-    
-    task_id = str(uuid.uuid4())
-    temp_dir = '/tmp'
-    os.makedirs(temp_dir, exist_ok=True)
-    file_path = os.path.join(temp_dir, f"{task_id}_{file.filename}")
-    
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    # --- Control de Páginas y Facturación Dinámica ---
     try:
-        import pypdf
-        reader = pypdf.PdfReader(file_path)
-        num_pages = len(reader.pages)
-        if num_pages > 20:
-            os.remove(file_path)
-            raise HTTPException(status_code=400, detail="El documento excede el límite permitido de 20 páginas por razones de rentabilidad y seguridad.")
+        if org_id: check_rate_limit(org_id)
+        if auth_user["organization_id"] and org_id != str(auth_user["organization_id"]):
+            raise HTTPException(status_code=403, detail="No autorizado.")
         
-        # --- PRE-CHECK OCR (Scanned Document) ---
-        sample_text = ""
-        for i in range(min(3, num_pages)):
-            sample_text += reader.pages[i].extract_text() or ""
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Solo PDF.")
+        
+        task_id = str(uuid.uuid4())
+        temp_dir = '/tmp'
+        os.makedirs(temp_dir, exist_ok=True)
+        file_path = os.path.join(temp_dir, f"{task_id}_{file.filename}")
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
             
-        if len(sample_text.strip()) < 50:
-            os.remove(file_path)
-            try:
-                from openai import AsyncOpenAI
-                client = AsyncOpenAI()
-                prompt = f"El usuario subió un documento PDF llamado '{file.filename}'. Hemos detectado que es un documento escaneado (sin texto digital o es una pura imagen). Redacta un mensaje breve y amable (máximo 2 párrafos) dirigido al usuario final. Explícale que el documento no se puede analizar en este momento porque necesita que le apliquemos Reconocimiento Óptico de Caracteres (OCR). Menciona de forma inteligente de qué trata probablemente el documento basándote exclusivamente en su nombre de archivo: '{file.filename}'."
-                completion = await client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                ocr_msg = completion.choices[0].message.content
-            except Exception as e:
-                ocr_msg = f"El documento '{file.filename}' parece ser un escaneo sin texto. Se requiere OCR para analizarlo."
+        # --- Control de Páginas y Facturación Dinámica ---
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(file_path)
+            num_pages = len(reader.pages)
+            if num_pages > 20:
+                os.remove(file_path)
+                raise HTTPException(status_code=400, detail="El documento excede el límite permitido de 20 páginas por razones de rentabilidad y seguridad.")
+            
+            # --- PRE-CHECK OCR (Scanned Document) ---
+            sample_text = ""
+            for i in range(min(3, num_pages)):
+                sample_text += reader.pages[i].extract_text() or ""
                 
-            return {
-                "task_id": task_id,
-                "status": "ocr_required",
-                "message": ocr_msg
+            if len(sample_text.strip()) < 50:
+                os.remove(file_path)
+                try:
+                    from openai import AsyncOpenAI
+                    client = AsyncOpenAI()
+                    prompt = f"El usuario subió un documento PDF llamado '{file.filename}'. Hemos detectado que es un documento escaneado (sin texto digital o es una pura imagen). Redacta un mensaje breve y amable (máximo 2 párrafos) dirigido al usuario final. Explícale que el documento no se puede analizar en este momento porque necesita que le apliquemos Reconocimiento Óptico de Caracteres (OCR). Menciona de forma inteligente de qué trata probablemente el documento basándote exclusivamente en su nombre de archivo: '{file.filename}'."
+                    completion = await client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    ocr_msg = completion.choices[0].message.content
+                except Exception as e:
+                    ocr_msg = f"El documento '{file.filename}' parece ser un escaneo sin texto. Se requiere OCR para analizarlo."
+                    
+                return {
+                    "task_id": task_id,
+                    "status": "ocr_required",
+                    "message": ocr_msg
+                }
+                
+            token_cost = 3 if num_pages > 10 else 1
+            warning_msg = "Procesando. (Aviso: Documento >10 págs, consume 3 tokens)." if num_pages > 10 else "Procesando"
+        except Exception as e:
+            if isinstance(e, HTTPException): raise e
+            os.remove(file_path)
+            raise HTTPException(status_code=400, detail="Error al validar estructura del PDF.")
+        # -------------------------------------------------
+        
+        file_hash = calculate_file_hash(file_path)
+        scenario = "NEW"
+        conflict_details = None
+        
+        if supabase and org_id:
+            docs = supabase.table("ando_documents").select("*").eq("organization_id", org_id).eq("file_hash", file_hash).execute().data
+            if docs:
+                scenario = "MATCH"
+                conflict_details = docs[0]
+
+        tasks_db[task_id] = {
+            "status": "pending_decision" if scenario != "NEW" else "pending",
+            "filename": file.filename, "hash": file_hash, "org_id": org_id,
+            "user_id": auth_user["id"], "file_path": file_path, "scenario": scenario,
+            "created_at": datetime.now().isoformat(),
+            "config": {
+                "selected_pages": [int(x.strip()) for x in selected_pages.split(",") if x.strip()] if selected_pages else None,
+                "extract_images": extract_images.lower() == "true",
+                "force_ocr": force_ocr.lower() == "true",
             }
-            
-        token_cost = 3 if num_pages > 10 else 1
-        warning_msg = "Procesando. (Aviso: Documento >10 págs, consume 3 tokens)." if num_pages > 10 else "Procesando"
-    except Exception as e:
-        if isinstance(e, HTTPException): raise e
-        os.remove(file_path)
-        raise HTTPException(status_code=400, detail="Error al validar estructura del PDF.")
-    # -------------------------------------------------
-    
-    file_hash = calculate_file_hash(file_path)
-    scenario = "NEW"
-    conflict_details = None
-    
-    if supabase and org_id:
-        docs = supabase.table("ando_documents").select("*").eq("organization_id", org_id).eq("file_hash", file_hash).execute().data
-        if docs:
-            scenario = "MATCH"
-            conflict_details = docs[0]
-
-    tasks_db[task_id] = {
-        "status": "pending_decision" if scenario != "NEW" else "pending",
-        "filename": file.filename, "hash": file_hash, "org_id": org_id,
-        "user_id": auth_user["id"], "file_path": file_path, "scenario": scenario,
-        "created_at": datetime.now().isoformat(),
-        "config": {
-            "selected_pages": [int(x.strip()) for x in selected_pages.split(",") if x.strip()] if selected_pages else None,
-            "extract_images": extract_images.lower() == "true",
-            "force_ocr": force_ocr.lower() == "true",
         }
-    }
 
-    if scenario == "NEW" and org_id:
-        if not consume_credit(org_id, token_cost, f"Análisis ({num_pages} págs): {file.filename}"):
-            raise HTTPException(status_code=402, detail="Créditos insuficientes.")
-        await run_analysis_task(task_id, file_path)
-    
-    return {
-        "task_id": task_id, 
-        "status": tasks_db[task_id]["status"], 
-        "message": warning_msg if scenario == "NEW" else "Procesando", 
-        "scenario": scenario,
-        "existing_id": conflict_details["id"] if conflict_details else None,
-        "version": conflict_details["current_version"] if conflict_details else None,
-        "conflict_details": conflict_details,
-        "data": tasks_db[task_id].get("result")
-    }
+        if scenario == "NEW" and org_id:
+            if not consume_credit(org_id, token_cost, f"Análisis ({num_pages} págs): {file.filename}"):
+                raise HTTPException(status_code=402, detail="Créditos insuficientes.")
+            await run_analysis_task(task_id, file_path)
+        
+        return {
+            "task_id": task_id, 
+            "status": tasks_db[task_id]["status"], 
+            "message": warning_msg if scenario == "NEW" else "Procesando", 
+            "scenario": scenario,
+            "existing_id": conflict_details["id"] if conflict_details else None,
+            "version": conflict_details["current_version"] if conflict_details else None,
+            "conflict_details": conflict_details,
+            "data": tasks_db[task_id].get("result")
+        }
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        import traceback
+        trace_str = traceback.format_exc()
+        print(f"🚨 Unhandled Error in upload_document: {trace_str}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze/confirm")
 async def confirm_analysis(req: AnalysisConfirmRequest, org_id: Optional[str] = Form(None)):
