@@ -42,6 +42,9 @@ class TaskResponse(BaseModel):
     message: str
     scenario: Optional[str] = None
     existing_id: Optional[str] = None
+    version: Optional[str] = None
+    conflict_details: Optional[Dict[str, Any]] = None
+    data: Optional[Dict[str, Any]] = None
 
 class AnalysisConfirmRequest(BaseModel):
     task_id: str
