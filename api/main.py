@@ -84,6 +84,31 @@ async def upload_document(
             os.remove(file_path)
             raise HTTPException(status_code=400, detail="El documento excede el límite permitido de 20 páginas por razones de rentabilidad y seguridad.")
         
+        # --- PRE-CHECK OCR (Scanned Document) ---
+        sample_text = ""
+        for i in range(min(3, num_pages)):
+            sample_text += reader.pages[i].extract_text() or ""
+            
+        if len(sample_text.strip()) < 50:
+            os.remove(file_path)
+            try:
+                from openai import AsyncOpenAI
+                client = AsyncOpenAI()
+                prompt = f"El usuario subió un documento PDF llamado '{file.filename}'. Hemos detectado que es un documento escaneado (sin texto digital o es una pura imagen). Redacta un mensaje breve y amable (máximo 2 párrafos) dirigido al usuario final. Explícale que el documento no se puede analizar en este momento porque necesita que le apliquemos Reconocimiento Óptico de Caracteres (OCR). Menciona de forma inteligente de qué trata probablemente el documento basándote exclusivamente en su nombre de archivo: '{file.filename}'."
+                completion = await client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                ocr_msg = completion.choices[0].message.content
+            except Exception as e:
+                ocr_msg = f"El documento '{file.filename}' parece ser un escaneo sin texto. Se requiere OCR para analizarlo."
+                
+            return {
+                "task_id": task_id,
+                "status": "ocr_required",
+                "message": ocr_msg
+            }
+            
         token_cost = 3 if num_pages > 10 else 1
         warning_msg = "Procesando. (Aviso: Documento >10 págs, consume 3 tokens)." if num_pages > 10 else "Procesando"
     except Exception as e:
