@@ -57,8 +57,9 @@ async def run_analysis_task(task_id: str, file_path: str):
         tasks_db[task_id]["status"] = "processing"
         
         # Phase 1
+        config = tasks_db[task_id].get("config", {})
         def p1_prog(c, t): update_task_progress(task_id, 1, "Digitalizando...", detail=f"Pág {c} de {t}...")
-        extraction_result = pdf_analyzer.analyze_pdf(file_path, progress_callback=p1_prog)
+        extraction_result = pdf_analyzer.analyze_pdf(file_path, progress_callback=p1_prog, config=config)
         if not extraction_result: raise Exception("Failed extraction")
         pages_data, pdf_meta = extraction_result
         

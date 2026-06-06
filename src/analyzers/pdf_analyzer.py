@@ -1,19 +1,30 @@
 import pypdf
 import re
 
-def analyze_pdf(file_path, progress_callback=None):
+def analyze_pdf(file_path, progress_callback=None, config=None):
     """
     Analyzes a PDF file to extract text and basic metadata.
     Returns a list of page objects.
     """
+    if config is None: config = {}
+    selected_pages = config.get("selected_pages", None)
+    extract_images_flag = config.get("extract_images", True)
+    force_ocr = config.get("force_ocr", False)
+    
     results = []
     try:
         reader = pypdf.PdfReader(file_path)
         num_pages = len(reader.pages)
         
         for i, page in enumerate(reader.pages):
+            page_num = i + 1
+            
+            # Filter pages if user selected specific ones
+            if selected_pages is not None and page_num not in selected_pages:
+                continue
+
             if progress_callback:
-                progress_callback(i + 1, num_pages)
+                progress_callback(page_num, num_pages)
 
             text = page.extract_text() or ""
             
@@ -81,9 +92,9 @@ def analyze_pdf(file_path, progress_callback=None):
                 except:
                     pass
             
-            # Image Extraction Logic (Existing)
+            # Image Extraction Logic
             images_found = []
-            if len(page.images) > 0:
+            if extract_images_flag and len(page.images) > 0:
                 for img in page.images:
                     images_found.append({
                         "name": img.name,

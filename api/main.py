@@ -53,11 +53,35 @@ class AnalysisConfirmRequest(BaseModel):
 @app.get("/")
 def read_root(): return {"status": "online", "service": "AnDo API"}
 
+@app.post("/analyze/preview")
+async def preview_document(
+    file: UploadFile = File(...),
+    auth_user: dict = Depends(verify_token)
+):
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Solo PDF.")
+    
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(file.file)
+        num_pages = len(reader.pages)
+        return {
+            "status": "success",
+            "filename": file.filename,
+            "page_count": num_pages
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Error al leer el PDF.")
+
+
 @app.post("/analyze/upload", response_model=TaskResponse)
 async def upload_document(
     file: UploadFile = File(...), 
     background_tasks: BackgroundTasks = None,
     org_id: Optional[str] = Form(None),
+    selected_pages: Optional[str] = Form(None),
+    extract_images: Optional[str] = Form("true"),
+    force_ocr: Optional[str] = Form("false"),
     auth_user: dict = Depends(verify_token)
 ):
     if org_id: check_rate_limit(org_id)
@@ -131,7 +155,12 @@ async def upload_document(
         "status": "pending_decision" if scenario != "NEW" else "pending",
         "filename": file.filename, "hash": file_hash, "org_id": org_id,
         "user_id": auth_user["id"], "file_path": file_path, "scenario": scenario,
-        "created_at": datetime.now().isoformat()
+        "created_at": datetime.now().isoformat(),
+        "config": {
+            "selected_pages": [int(x.strip()) for x in selected_pages.split(",") if x.strip()] if selected_pages else None,
+            "extract_images": extract_images.lower() == "true",
+            "force_ocr": force_ocr.lower() == "true",
+        }
     }
 
     if scenario == "NEW" and org_id:
