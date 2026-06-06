@@ -78,7 +78,7 @@ async def run_analysis_task(task_id: str, file_path: str):
 
         # Phase 3: Detailed
         update_task_progress(task_id, 3, "Informe estructural...")
-        detailed_json_raw, _ = detailed_analyzer.extract_detailed_analysis(pages_data, file_path=file_path)
+        detailed_json_raw, detailed_usage = detailed_analyzer.extract_detailed_analysis(pages_data, file_path=file_path)
         print(f"RAW DETAILED JSON OUTPUT: {repr(detailed_json_raw)}")
         detailed_report = json.loads(detailed_json_raw)
         # Phase 4 & 5
@@ -89,11 +89,23 @@ async def run_analysis_task(task_id: str, file_path: str):
         update_task_progress(task_id, 5, "Cruce...")
         process_cross_report = process_cross_analyzer.analyze_process_crossing(detailed_report, pages_data)
 
+        # Token usage aggregation
+        total_tokens = detailed_usage.get("total_token_count", 0) if detailed_usage else 0
+        if isinstance(congruence_report, dict):
+            total_tokens += congruence_report.get("usage", {}).get("total_token_count", 0)
+        if isinstance(process_cross_report, dict):
+            total_tokens += process_cross_report.get("usage", {}).get("total_token_count", 0)
+            
+        usage_stats = {
+            "total_tokens": total_tokens
+        }
+
         # Result construction
         final_result = {
             "metadata": pdf_meta, "pages": serialized_pages, "detailed_report": detailed_report,
             "congruence_report": congruence_report, "process_cross_report": process_cross_report,
-            "index_card": index_card, "page_count": len(serialized_pages)
+            "index_card": index_card, "page_count": len(serialized_pages),
+            "usage_stats": usage_stats
         }
         tasks_db[task_id]["result"] = final_result
         tasks_db[task_id]["status"] = "completed"
