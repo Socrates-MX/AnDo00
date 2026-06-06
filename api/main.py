@@ -83,8 +83,11 @@ async def upload_document(
     auth_user: dict = Depends(verify_token)
 ):
     try:
+        if not org_id and auth_user.get("organization_id"):
+            org_id = str(auth_user["organization_id"])
+            
         if org_id: check_rate_limit(org_id)
-        if auth_user["organization_id"] and org_id != str(auth_user["organization_id"]):
+        if auth_user.get("organization_id") and org_id != str(auth_user["organization_id"]):
             raise HTTPException(status_code=403, detail="No autorizado.")
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Solo PDF.")
