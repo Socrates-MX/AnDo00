@@ -109,18 +109,28 @@ async def run_analysis_task(task_id: str, file_path: str):
                 org_id = tasks_db[task_id].get("org_id")
                 filename = tasks_db[task_id].get("filename")
                 file_hash = tasks_db[task_id].get("hash")
+                
+                # 1. Upsert ando_documents
                 doc_data = {
-                    "nombre_archivo": filename,
-                    "hash_documento": file_hash,
-                    "numero_paginas": len(serialized_pages),
-                    "estado": "analizado",
-                    "version_actual": 1,
-                    "payload_completo": final_result,
-                    "organization_id": org_id
+                    "organization_id": org_id,
+                    "file_name": filename,
+                    "file_hash": file_hash,
+                    "page_count": len(serialized_pages),
+                    "status": "extracted"
                 }
-                res = supabase.table("ando_documents").insert(doc_data).execute()
-                if res.data:
-                    doc_db_id = res.data[0]['id']
+                res_doc = supabase.table("ando_documents").upsert(doc_data, on_conflict="file_hash").execute()
+                
+                if res_doc.data:
+                    doc_db_id = res_doc.data[0]['id']
+                    
+                    # 2. Insert payload into ando_analysis_versions
+                    version_data = {
+                        "document_id": doc_db_id,
+                        "version_number": 1,
+                        "full_analysis_payload": final_result
+                    }
+                    supabase.table("ando_analysis_versions").insert(version_data).execute()
+                    
             except Exception as e:
                 print(f"Supabase Insert Error: {e}")
 
