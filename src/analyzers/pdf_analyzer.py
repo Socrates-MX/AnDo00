@@ -120,7 +120,7 @@ def analyze_pdf(file_path, progress_callback=None, config=None):
     # Extraer metadatos extendidos y estado de encriptación
     meta_dict = {}
     if reader.metadata:
-        meta_dict = {k.replace("/", ""): v for k, v in reader.metadata.items()}
+        meta_dict = {k.replace("/", ""): str(v) for k, v in reader.metadata.items()}
     
     # Agregar estado de seguridad
     meta_dict["is_encrypted"] = reader.is_encrypted
