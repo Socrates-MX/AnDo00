@@ -179,27 +179,30 @@ async def upload_document(
             if not consume_credit(org_id, token_cost, f"Análisis ({num_pages} págs): {file.filename}"):
                 os.remove(file_path)
                 raise HTTPException(status_code=402, detail="Créditos insuficientes.")
-        
-        # Insert or fetch doc ID
-        doc_data = {
-            "organization_id": org_id,
-            "file_name": file.filename,
-            "file_hash": file_hash,
-            "page_count": len(serialized_pages),
-            "status": status_to_save
-        }
-        
-        res_doc = supabase.table("ando_documents").insert(doc_data).execute()
-        if not res_doc.data:
-            os.remove(file_path)
-            raise HTTPException(status_code=500, detail="Fallo al guardar el documento en la base de datos.")
-            
-        doc_db_id = res_doc.data[0]['id']
+                
+            doc_data = {
+                "organization_id": org_id,
+                "file_name": file.filename,
+                "file_hash": file_hash,
+                "page_count": len(serialized_pages),
+                "status": status_to_save
+            }
+                
+            res_doc = supabase.table("ando_documents").insert(doc_data).execute()
+            if not res_doc.data:
+                os.remove(file_path)
+                raise HTTPException(status_code=500, detail="Fallo al guardar el documento en la base de datos.")
+            doc_db_id = res_doc.data[0]['id']
+            version_number = 1
+        else:
+            doc_db_id = conflict_details["id"]
+            version_res = supabase.table("ando_analysis_versions").select("version_number").eq("document_id", doc_db_id).order("version_number", desc=True).limit(1).execute()
+            version_number = (version_res.data[0]["version_number"] + 1) if version_res.data else 1
         
         # Save payload
         version_data = {
             "document_id": doc_db_id,
-            "version_number": 1,
+            "version_number": version_number,
             "full_analysis_payload": {
                 "metadata": pdf_meta,
                 "pages": serialized_pages,
