@@ -79,7 +79,7 @@ def analyze_raw_congruence(raw_consolidation_json):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=os.getenv("OPENAI_REASONING_MODEL", "o1"),
             messages=[
                 {"role": "user", "content": prompt}
             ],

@@ -66,7 +66,7 @@ def analyze_document_congruence(detailed_report, pages_data):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=os.getenv("OPENAI_REASONING_MODEL", "o1"),
             messages=[
                 {"role": "user", "content": prompt}
             ],
