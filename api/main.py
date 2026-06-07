@@ -49,6 +49,7 @@ class TaskResponse(BaseModel):
 class AnalysisConfirmRequest(BaseModel):
     task_id: str
     action: str 
+    org_id: Optional[str] = None
 
 @app.get("/")
 def read_root(): return {"status": "online", "service": "AnDo API"}
@@ -232,7 +233,7 @@ async def upload_document(
         raise HTTPException(status_code=500, detail=trace_str)
 
 @app.post("/analyze/confirm")
-async def confirm_analysis(req: AnalysisConfirmRequest, org_id: Optional[str] = Form(None)):
+async def confirm_analysis(req: AnalysisConfirmRequest):
     doc_id = req.task_id
     if not supabase: raise HTTPException(status_code=500)
     
