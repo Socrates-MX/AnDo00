@@ -49,7 +49,7 @@ def extract_index_and_congruence(pages_data):
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("OPENAI_REASONING_MODEL", "o1-mini"),
+            model=os.getenv("OPENAI_REASONING_MODEL", "gpt-4o-mini"),
             messages=[
                 {"role": "user", "content": prompt}
             ],

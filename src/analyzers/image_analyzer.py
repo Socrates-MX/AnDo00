@@ -45,7 +45,7 @@ def generate_text_interpretation(text_content):
         )
         
         response = client.chat.completions.create(
-            model=os.getenv("OPENAI_REASONING_MODEL", "o1-mini"),
+            model=os.getenv("OPENAI_REASONING_MODEL", "gpt-4o-mini"),
             messages=[
                 {"role": "user", "content": prompt}
             ]
