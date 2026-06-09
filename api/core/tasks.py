@@ -15,11 +15,9 @@ def update_task_progress(task_id: str, step_index: int, step_description: str, d
             tasks_db[task_id]["steps"] = []
         
         tasks_db[task_id]["steps"] = [
-            {"label": "Fase 1/5: Digitalizando documento y extrayendo texto (OCR)...", "status": "completed" if step_index > 1 else "processing" if step_index == 1 else "pending"},
-            {"label": "Fase 2/5: Analizando elementos visuales e imágenes...", "status": "completed" if step_index > 2 else "processing" if step_index == 2 else "pending"},
-            {"label": "Fase 3/5: Generando Informe Estructural del Análisis (Deep Analysis)...", "status": "completed" if step_index > 3 else "processing" if step_index == 3 else "pending"},
-            {"label": "Fase 4/5: Construyendo Índice Lógico y Validando Congruencia...", "status": "completed" if step_index > 4 else "processing" if step_index == 4 else "pending"},
-            {"label": "Fase 5/5: Ejecutando Cruce Diagrama vs Procedimientos...", "status": "completed" if step_index > 5 else "processing" if step_index == 5 else "pending"}
+            {"label": "Fase 1/3: Digitalizando documento y extrayendo texto (OCR)...", "status": "completed" if step_index > 1 else "processing" if step_index == 1 else "pending"},
+            {"label": "Fase 2/3: Analizando elementos visuales e imágenes...", "status": "completed" if step_index > 2 else "processing" if step_index == 2 else "pending"},
+            {"label": "Fase 3/3: Generando Resumen y Análisis RAW...", "status": "completed" if step_index > 3 else "processing" if step_index == 3 else "pending"}
         ]
         if detail and 0 <= step_index - 1 < len(tasks_db[task_id]["steps"]):
              tasks_db[task_id]["steps"][step_index - 1]["detail"] = detail
@@ -82,8 +80,8 @@ async def run_analysis_task(task_id: str, file_path: str):
         detailed_json_raw, detailed_usage = detailed_analyzer.extract_detailed_analysis(pages_data, file_path=file_path)
         print(f"RAW DETAILED JSON OUTPUT: {repr(detailed_json_raw)}")
         detailed_report = json.loads(detailed_json_raw)
-        # Phase 4 & 5 (Omitidos en Vercel por timeout, delegado a ARC00)
-        update_task_progress(task_id, 4, "Finalizando Extracción (Omitiendo Cruces en Vercel)...")
+        # Phase 3: Completed
+        update_task_progress(task_id, 3, "Completado", detail="Análisis finalizado.")
         congruence_report = {}
         process_cross_report = {}
         index_card = {}

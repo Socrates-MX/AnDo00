@@ -60,16 +60,16 @@ def run_analysis_task(task_id: str, file_path: str, org_id: Optional[str] = None
             })
 
         # 1. OCR & Extraction
-        update_step("Fase 1/5: Digitalizando documento y extrayendo texto (OCR)...", "processing")
+        update_step("Fase 1/3: Digitalizando documento y extrayendo texto (OCR)...", "processing")
         pages_data = pdf_analyzer.analyze_pdf(file_path)
         
         if not pages_data:
             raise Exception("No se pudo extraer contenido del PDF.")
         
-        update_step("Fase 1/5: Digitalizando documento y extrayendo texto (OCR)...", "completed")
+        update_step("Fase 1/3: Digitalizando documento y extrayendo texto (OCR)...", "completed")
 
         # 2. Image Analysis
-        update_step("Fase 2/5: Analizando elementos visuales e imágenes...", "processing")
+        update_step("Fase 2/3: Analizando elementos visuales e imágenes...", "processing")
         for page in pages_data:
             # Text Interpretation
             page['text_interpret'] = image_analyzer.generate_text_interpretation(page['text_content'])
@@ -78,28 +78,22 @@ def run_analysis_task(task_id: str, file_path: str, org_id: Optional[str] = None
             for img in page.get('images', []):
                 img['description'] = image_analyzer.generate_image_description(img['image_bytes'])
         
-        update_step("Fase 2/5: Analizando elementos visuales e imágenes...", "completed")
+        update_step("Fase 2/3: Analizando elementos visuales e imágenes...", "completed")
 
         # 3. Structural Analysis
-        update_step("Fase 3/5: Generando Informe Estructural...", "processing")
+        update_step("Fase 3/3: Generando Resumen y Análisis RAW...", "processing")
         detailed_json_raw = detailed_analyzer.extract_detailed_analysis(pages_data, file_path)
         try:
             detailed_report = json.loads(detailed_json_raw)
         except:
             detailed_report = {"error": "Failed to parse detailed analysis JSON", "raw": detailed_json_raw}
         
-        update_step("Fase 3/5: Generando Informe Estructural...", "completed")
+        update_step("Fase 3/3: Generando Resumen y Análisis RAW...", "completed")
 
-        # 4. Index & Congruence
-        update_step("Fase 4/5: Construyendo Índice Lógico...", "processing")
-        index_card = report_generator.generate_index_card(pages_data)
-        congruence_report = congruence_analyzer.analyze_document_congruence(detailed_report, pages_data)
-        update_step("Fase 4/5: Construyendo Índice Lógico...", "completed")
-
-        # 5. Process Cross
-        update_step("Fase 5/5: Ejecutando Cruce Diagrama vs Procedimientos...", "processing")
-        process_cross_report = process_cross_analyzer.analyze_process_crossing(detailed_report, pages_data)
-        update_step("Fase 5/5: Ejecutando Cruce Diagrama vs Procedimientos...", "completed")
+        # Set empty objects for pruned phases
+        index_card = {}
+        congruence_report = {}
+        process_cross_report = {}
 
         # RAW REPORT (Extra)
         raw_congruence_report = {
