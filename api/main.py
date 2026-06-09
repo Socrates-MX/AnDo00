@@ -15,6 +15,7 @@ from core.auth import verify_token
 from core.utils import check_rate_limit, calculate_file_hash, normalize_filename
 from core.tasks import consume_credit, log_audit
 from analyzers import pdf_analyzer, detailed_analyzer
+from generators.pdf_report_generator import create_full_report_pdf
 
 load_dotenv()
 
@@ -327,4 +328,269 @@ def get_status(task_id: str, auth_user: dict = Depends(verify_token)):
 def list_docs(auth_user: dict = Depends(verify_token)):
     if not supabase: return []
     return supabase.table("ando_documents").select("*").eq("organization_id", auth_user["organization_id"]).order("updated_at", desc=True).execute().data
+
+@app.get("/documents/{document_id}")
+def get_document_details(document_id: str, auth_user: dict = Depends(verify_token)):
+    """
+    Fetch full analysis from 'ando_analysis_versions'.
+    """
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not available")
+        
+    try:
+        # 1. Get header
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
+        if not doc_res.data:
+            raise HTTPException(status_code=404, detail="Document not found")
+        doc = doc_res.data[0]
+        
+        # SECURITY CHECK
+        if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para ver este documento.")
+        
+        # 2. Get latest analysis for this specific doc record
+        analysis_res = supabase.table("ando_analysis_versions")\
+            .select("*")\
+            .eq("document_id", document_id)\
+            .order("version_number", desc=True)\
+            .limit(1)\
+            .execute()
+            
+        if not analysis_res.data:
+            return {"status": "error", "message": "No analysis versions found for this document."}
+            
+        analysis_payload = analysis_res.data[0].get("full_analysis_payload")
+        
+        # Combine meta
+        return {
+            "status": "completed",
+            "data": analysis_payload,
+            "metadata": doc
+        }
+
+    except Exception as e:
+        print(f"Error fetching document: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/documents/{document_id}/report")
+def generate_report(document_id: str, auth_user: dict = Depends(verify_token)):
+    """
+    Generates a PDF report for the given document ID on the fly.
+    """
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    try:
+        # Fetch meta from ando_documents
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
+        if not doc_res.data:
+            raise HTTPException(status_code=404, detail="Document not found")
+        doc = doc_res.data[0]
+
+        # SECURITY CHECK
+        if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para descargar este reporte.")
+
+        # LOG AUDIT
+        log_audit(
+            org_id=doc["organization_id"],
+            user_id=auth_user["id"],
+            action="DOWNLOAD_REPORT",
+            doc_id=document_id,
+            res_name=doc["file_name"]
+        )
+
+        # Fetch analysis from ando_analysis_versions
+        analysis_res = supabase.table("ando_analysis_versions") \
+            .select("*") \
+            .eq("document_id", document_id) \
+            .order("version_number", desc=True) \
+            .limit(1) \
+            .execute()
+            
+        if not analysis_res.data:
+             raise HTTPException(status_code=404, detail="Analysis payload not found")
+        
+        payload = analysis_res.data[0].get("full_analysis_payload", {})
+        
+        # --- PDF GENERATION LOGIC ---
+        pdf_bytes = create_full_report_pdf(payload)
+        
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=report_{document_id[:8]}.pdf"}
+        )
+
+    except Exception as e:
+        print(f"PDF Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/documents/{document_id}/version")
+async def update_document_version(
+    document_id: str, 
+    payload: Dict[str, Any],
+    auth_user: dict = Depends(verify_token)
+):
+    """
+    Creates a new version of the analysis for a document after manual edits.
+    Uses 'ando_documents' and 'ando_analysis_versions'.
+    """
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    try:
+        # 1. Get current version info
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
+        if not doc_res.data:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        current_doc = doc_res.data[0]
+
+        # SECURITY CHECK
+        if str(current_doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para editar este documento.")
+        new_v = (current_doc.get("current_version") or 1) + 1
+
+        # 2. Insert new analysis version record
+        analysis_record = {
+            "document_id": document_id,
+            "version_number": new_v,
+            "full_analysis_payload": payload
+        }
+        
+        ins_res = supabase.table("ando_analysis_versions").insert(analysis_record).execute()
+        
+        if not ins_res.data:
+             raise HTTPException(status_code=500, detail="Failed to insert new analysis version")
+
+        # 3. Update master document record
+        upd_res = supabase.table("ando_documents") \
+            .update({
+                "current_version": new_v, 
+                "updated_at": datetime.now().isoformat()
+            }) \
+            .eq("id", document_id) \
+            .execute()
+            
+        # LOG AUDIT
+        log_audit(
+            org_id=auth_user["organization_id"],
+            user_id=auth_user["id"],
+            action="SAVE_VERSION",
+            doc_id=document_id,
+            res_name=current_doc["file_name"],
+            metadata={"new_version": new_v}
+        )
+
+        return {
+            "status": "success",
+            "message": f"Version updated to V{new_v}",
+            "new_version": new_v
+        }
+
+    except Exception as e:
+        print(f"Update Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/documents/{document_id}/assignment")
+async def update_document_assignment(
+    document_id: str,
+    assignment: Dict[str, Any],
+    auth_user: dict = Depends(verify_token)
+):
+    """
+    Updates the legal_entity_id for a document.
+    """
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    legal_entity_id = assignment.get("legal_entity_id")
+    
+    try:
+        # 1. Security Check
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
+        if not doc_res.data:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        doc = doc_res.data[0]
+        if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             raise HTTPException(status_code=403, detail="No autorizado para editar este documento.")
+
+        # 2. Update
+        res = supabase.table("ando_documents") \
+            .update({"legal_entity_id": legal_entity_id}) \
+            .eq("id", document_id) \
+            .execute()
+            
+        # LOG AUDIT
+        log_audit(
+            org_id=auth_user["organization_id"],
+            user_id=auth_user["id"],
+            action="ASSIGN_ENTITY",
+            doc_id=document_id,
+            res_name=doc["file_name"],
+            metadata={"legal_entity_id": legal_entity_id}
+        )
+
+        return {"status": "success", "message": "Document assignment updated"}
+    except Exception as e:
+        print(f"Assignment Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/documents/{document_id}")
+def delete_document(document_id: str, auth_user: dict = Depends(verify_token)):
+    """
+    Deletes a document and all its associated analysis versions from official tables.
+    """
+    print(f"🗑️ [DELETE REQUEST] Deleting document: {document_id} by User: {auth_user['id']}")
+
+    if not supabase:
+        print("❌ Database not connected")
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    try:
+        # 1. Security Check before delete
+        doc_res = supabase.table("ando_documents").select("*").eq("id", document_id).execute()
+        
+        if not doc_res.data:
+             print(f"❌ Document {document_id} not found in DB")
+             raise HTTPException(status_code=404, detail="Document not found")
+        
+        doc = doc_res.data[0]
+        
+        if str(doc.get("organization_id")) != str(auth_user["organization_id"]):
+             print(f"🚫 Unauthorized delete attempt by {auth_user['id']} (Org {auth_user['organization_id']}) on Doc {document_id} (Org {doc.get('organization_id')})")
+             raise HTTPException(status_code=403, detail="No autorizado para eliminar este documento.")
+
+        # LOG AUDIT
+        try:
+            log_audit(
+                org_id=doc["organization_id"],
+                user_id=auth_user["id"],
+                action="DELETE",
+                doc_id=document_id,
+                res_name=doc["file_name"]
+            )
+        except Exception as audit_err:
+            print(f"⚠️ Audit log failed (non-critical): {audit_err}")
+
+        # 2. Delete versions first (Manual Cascade just in case)
+        print(f"🗑️ Deleting versions for doc: {document_id}")
+        vers_res = supabase.table("ando_analysis_versions").delete().eq("document_id", document_id).execute()
+        print(f"✅ Versions deleted: {vers_res}")
+
+        # 3. Delete master document
+        print(f"🗑️ Deleting master record: {document_id}")
+        res = supabase.table("ando_documents").delete().eq("id", document_id).execute()
+        
+        print(f"✅ Delete success for {document_id}: {res}")
+        return {"status": "success", "message": f"Document {document_id} and history deleted"}
+
+    except Exception as e:
+        print(f"❌ Delete Error Trace: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 

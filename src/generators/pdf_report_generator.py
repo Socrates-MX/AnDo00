@@ -73,7 +73,7 @@ def create_full_report_pdf(all_data):
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(5)
     
-    pages_data = all_data.get('pages_data', [])
+    pages_data = all_data.get('pages_data', all_data.get('pages', []))
     for page in pages_data:
         pdf.set_font('helvetica', 'B', 12)
         pdf.multi_cell(0, 10, f"Página {page['page_number']}", new_x='LMARGIN', new_y='NEXT')
